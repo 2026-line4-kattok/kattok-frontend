@@ -1,17 +1,21 @@
 @import 'tailwindcss';
+@import "pretendard/dist/web/static/pretendard.css";
 
-@import 'pretendard/dist/web/static/pretendard.css';
-
+/* 폰 폭 구간: max-phone-m(376px 미만), max-phone-s(360px 미만), max-phone-xs(320px 미만) */
 @theme {
-  --animate-slide-in: slide-in 0.3s ease-out;
+    --breakpoint-phone-xs: 20rem;
+    --breakpoint-phone-s: 22.5rem;
+    --breakpoint-phone-m: 23.5rem;
 
-  @keyframes slide-in {
-    from {
-      transform: translateX(-100%);
-    }
+    --animate-slide-in: slide-in 0.3s ease-out;
 
-    to {
-      transform: translateX(0);
+    @keyframes slide-in {
+        from {
+            transform: translateX(-100%);
+        }
+
+        to {
+            transform: translateX(0);
+        }
     }
-  }
 }
