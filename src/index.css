@@ -1,1 +1,10 @@
 @import 'tailwindcss';
+
+@import "pretendard/dist/web/static/pretendard.css";
+
+/* 폰 폭 구간: max-phone-m(376px 미만), max-phone-s(360px 미만), max-phone-xs(320px 미만) */
+@theme {
+  --breakpoint-phone-xs: 20rem;
+  --breakpoint-phone-s: 22.5rem;
+  --breakpoint-phone-m: 23.5rem;
+}
