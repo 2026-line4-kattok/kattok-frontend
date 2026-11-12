@@ -1,60 +1,8 @@
 import { ChevronLeft, X } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import kbNori2Image from '@/assets/card/KB 국민은행 노리2.png';
-import mrLifeImage from '@/assets/card/신한카드 Mr Life.png';
-import hanaKPassCheckImage from '@/assets/card/하나 K패스 체크카드.png';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { cn } from '@/utils/cn';
-
-const AMOUNT_PATH = '/payment/amount';
-
-// TODO: API 연동 시 서버 데이터로 교체합니다. (결제 기록 id로 조회)
-const PAYMENT_DETAILS = {
-  1: {
-    id: 1,
-    place: '스타벅스',
-    category: '카페',
-    amount: 30000,
-    selectedCardId: 'kb-nori2',
-    cards: [
-      {
-        id: 'kb-nori2',
-        name: 'KB국민 노리2 체크카드',
-        shortName: '노리 2',
-        image: kbNori2Image,
-        isHorizontal: true,
-        discount: 3000,
-        rate: 10,
-        isConditional: true,
-        conditionNotice: {
-          title: '노리 2의 지난달 실적을 아직 몰라요',
-          description:
-            '실적 조건(30만 원 이상)을 채웠다고 보고 10% 할인을 전부 적용했어요. 지난달 실적을 업데이트 하면 남은 한도 기준으로 정확히 계산할 수 있어요.',
-        },
-      },
-      {
-        id: 'shinhan-mr-life',
-        name: '신한 Mr.Life',
-        shortName: 'Mr.Life',
-        image: mrLifeImage,
-        discount: 2000,
-        rate: 10,
-        isConditional: false,
-      },
-      {
-        id: 'hana-k-pass',
-        name: '하나 K-패스',
-        shortName: 'K-패스',
-        image: hanaKPassCheckImage,
-        discount: 0,
-        rate: 0,
-        isConditional: false,
-      },
-    ],
-  },
-};
-
-const formatWon = (value) => `${value.toLocaleString('ko-KR')}원`;
+import { formatWon, PAYMENT_DETAILS } from './paymentDetailData';
 
 function Header({ place, card, onBack, onClose }) {
   return (
@@ -192,10 +140,12 @@ function OtherCardItem({ card, maxDiscount, onClick }) {
 
 export default function PaymentDetailPage() {
   const navigate = useNavigate();
+  const { state } = useLocation();
   const { paymentId } = useParams();
   const payment = PAYMENT_DETAILS[paymentId];
+  // 결제 카드 변경 화면에서 고른 카드가 있으면 그 카드를 먼저 보여줍니다.
   const [selectedCardId, setSelectedCardId] = useState(
-    payment?.selectedCardId,
+    state?.selectedCardId ?? payment?.recommendedCardId,
   );
 
   if (!payment) {
@@ -283,8 +233,9 @@ export default function PaymentDetailPage() {
         <button
           type="button"
           onClick={() =>
-            navigate(AMOUNT_PATH, {
-              state: { category: payment.category, place: payment.place },
+            navigate(`/payment/${payment.id}/card`, {
+              replace: true,
+              state: { selectedCardId: selectedCard.id },
             })
           }
           className="flex h-[54px] flex-1 items-center justify-center rounded-[27px] font-['Pretendard'] text-[20px] leading-[120%] font-[600] text-[#3B426B]"
