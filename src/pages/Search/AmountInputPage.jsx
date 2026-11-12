@@ -1,6 +1,7 @@
-import { ChevronLeft, Delete, X } from 'lucide-react';
+import { Delete } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import PageHeader from '@/components/layout/PageHeader';
 import {
   createPaymentDetail,
   hasBenefit,
@@ -74,33 +75,11 @@ export default function AmountInputPage() {
 
   return (
     <div className="flex h-dvh flex-col bg-[#F1F1F1]">
-      <div className="mx-auto w-full max-w-[402px] shrink-0 px-4 pt-[71px] max-phone-xs:px-3">
-        <header className="flex h-[40px] w-full items-center justify-between">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            aria-label="뒤로 가기"
-            className="flex size-[40px] items-center justify-center text-[#CACACA]"
-          >
-            <ChevronLeft
-              className="size-[40px]"
-              strokeWidth={2.5}
-              absoluteStrokeWidth
-            />
-          </button>
-          <h1 className="truncate font-['Pretendard'] text-[18px] leading-[120%] font-[600] text-[#4B4B4B]">
-            {title}
-          </h1>
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            aria-label="닫기"
-            className="flex size-[40px] items-center justify-center text-[#CACACA]"
-          >
-            <X className="size-[40px]" strokeWidth={2.5} absoluteStrokeWidth />
-          </button>
-        </header>
-      </div>
+      <PageHeader
+        title={title}
+        onBack={() => navigate(-1)}
+        onClose={() => navigate('/')}
+      />
 
       <main className="mx-auto flex min-h-0 w-full max-w-[402px] flex-1 flex-col px-[22px] max-phone-xs:px-3">
         <div className="mt-[32px] flex items-center gap-[12px]">

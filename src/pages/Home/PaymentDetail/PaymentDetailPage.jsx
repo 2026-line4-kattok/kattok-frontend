@@ -1,45 +1,22 @@
-import { ChevronLeft, X } from 'lucide-react';
 import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import PageHeader from '@/components/layout/PageHeader';
 import { cn } from '@/utils/cn';
 import CardUsageSheet from './CardUsageSheet';
 import { formatWon, PAYMENT_DETAILS } from './paymentDetailData';
 
-function Header({ place, card, onBack, onClose }) {
+function CardSubtitle({ card }) {
   return (
-    <header className="flex w-full items-center justify-between py-2">
-      <button
-        type="button"
-        onClick={onBack}
-        aria-label="뒤로 가기"
-        className="flex size-[40px] items-center justify-center text-[#CACACA]"
-      >
-        <ChevronLeft className="size-[28px]" strokeWidth={1.75} />
-      </button>
-      <div className="flex min-w-0 flex-col items-center gap-[2px]">
-        <h1 className="font-['Pretendard'] text-[18px] leading-[120%] font-[600] text-[#4B4B4B]">
-          {place}
-        </h1>
-        <div className="flex items-center gap-[6px]">
-          <span className="truncate font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]">
-            {card.name}
-          </span>
-          {card.isConditional && (
-            <span className="shrink-0 rounded-[8px] bg-[#DBE1FF] px-[4px] py-[1px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8C9EFF]">
-              조건부
-            </span>
-          )}
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="닫기"
-        className="flex size-[40px] items-center justify-center text-[#CACACA]"
-      >
-        <X className="size-[26px]" strokeWidth={1.75} />
-      </button>
-    </header>
+    <div className="flex max-w-full items-center gap-[6px]">
+      <span className="truncate font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]">
+        {card.name}
+      </span>
+      {card.isConditional && (
+        <span className="shrink-0 rounded-[8px] bg-[#DBE1FF] px-[4px] py-[1px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8C9EFF]">
+          조건부
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -203,14 +180,12 @@ export default function PaymentDetailPage() {
   return (
     // 헤더는 고정하고 그 아래 영역만 스크롤합니다.
     <div className="flex h-dvh flex-col bg-[#F1F1F1]">
-      <div className="mx-auto w-full max-w-[402px] shrink-0 px-[18px] pt-[48px] max-phone-xs:px-3">
-        <Header
-          place={payment.place}
-          card={selectedCard}
-          onBack={() => navigate(-1)}
-          onClose={() => navigate('/')}
-        />
-      </div>
+      <PageHeader
+        title={payment.place}
+        subtitle={<CardSubtitle card={selectedCard} />}
+        onBack={() => navigate(-1)}
+        onClose={() => navigate('/')}
+      />
 
       <main className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto [&::-webkit-scrollbar]:hidden">
         <div className="mx-auto flex w-full max-w-[402px] flex-col items-center gap-[24px] px-[18px] pt-[24px] pb-[calc(104px+max(20px,env(safe-area-inset-bottom)))] max-phone-xs:px-3">
