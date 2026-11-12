@@ -261,7 +261,6 @@ export default function Signup() {
   const searchResults = typeFiltered.filter((c) =>
     c.name.toLowerCase().includes(debounced.trim().toLowerCase()),
   );
-  const visibleCards = query.trim() === '' ? typeFiltered : searchResults;
   const selectedCard = MOCK_CARDS.find((c) => c.id === card);
 
   const handleSubmit = (e) => {
@@ -571,6 +570,38 @@ export default function Signup() {
           </div>
 
           <div className="mt-[30px] pb-6">
+            {query.trim() === '' && (
+              <div className="grid grid-cols-3 gap-x-3 gap-y-[18px]">
+                {typeFiltered.map((c) => {
+                  const isSelected = card === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setCard(c.id);
+                        setStep(4);
+                      }}
+                      className="flex w-full min-w-0 cursor-pointer flex-col gap-1"
+                    >
+                      <div className={cn(
+                        'relative aspect-[114/180] w-full overflow-hidden rounded-[8px] border',
+                        isSelected ? 'border-[#3B426B]' : 'border-transparent',
+                      )}>
+                        <Thumb src={c.image} text="" className="h-full w-full" />
+                        {isSelected && <div className="absolute inset-0 bg-[#3B426BBF]" />}
+                      </div>
+                      <span className={cn(
+                        'w-full text-center text-[16px] whitespace-pre-line',
+                        isSelected ? 'text-[#7F90E8]' : 'text-[#8E8E8E]',
+                      )}>
+                        {c.name.replace(' ', '\n')}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             {/* 검색 중*/}
             {searching && (
               <div className="flex flex-col gap-3">
@@ -580,9 +611,9 @@ export default function Signup() {
             )}
 
             {/* 검색 결과 */}
-            {!searching && visibleCards.length > 0 && (
+            {query.trim() !== '' && !searching && searchResults.length > 0 && (
               <div className="flex flex-col gap-3">
-                {visibleCards.map((c) => (
+                {searchResults.map((c) => (
                   <button
                     key={c.id}
                     type="button"
