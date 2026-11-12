@@ -1,6 +1,6 @@
-import { ChevronLeft, X } from 'lucide-react';
 import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import PageHeader from '@/components/layout/PageHeader';
 import { cn } from '@/utils/cn';
 import { formatWon, PAYMENT_DETAILS } from './paymentDetailData';
 
@@ -144,33 +144,11 @@ export default function CardChangePage() {
   return (
     // 헤더는 고정하고 그 아래 영역만 스크롤합니다.
     <div className="flex h-dvh flex-col bg-[#F1F1F1]">
-      <div className="mx-auto w-full max-w-[402px] shrink-0 px-4 pt-[71px] max-phone-xs:px-3">
-        <header className="flex h-[40px] w-full items-center justify-between">
-          <button
-            type="button"
-            onClick={() => goToDetail(state?.selectedCardId)}
-            aria-label="뒤로 가기"
-            className="flex size-[40px] items-center justify-center text-[#CACACA]"
-          >
-            <ChevronLeft
-              className="size-[40px]"
-              strokeWidth={2.5}
-              absoluteStrokeWidth
-            />
-          </button>
-          <h1 className="font-['Pretendard'] text-[18px] leading-[120%] font-[600] text-[#4B4B4B]">
-            결제 카드 변경
-          </h1>
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            aria-label="닫기"
-            className="flex size-[40px] items-center justify-center text-[#CACACA]"
-          >
-            <X className="size-[40px]" strokeWidth={2.5} absoluteStrokeWidth />
-          </button>
-        </header>
-      </div>
+      <PageHeader
+        title="결제 카드 변경"
+        onBack={() => goToDetail(state?.selectedCardId)}
+        onClose={() => navigate('/')}
+      />
 
       <main className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto [&::-webkit-scrollbar]:hidden">
         <div className="mx-auto flex w-full max-w-[402px] flex-col px-4 pb-[calc(66px+max(44px,env(safe-area-inset-bottom)))] max-phone-xs:px-3">
