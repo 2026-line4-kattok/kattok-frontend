@@ -262,9 +262,7 @@ export default function HomePage() {
               <X className="size-[18px] text-[#FAFAFA]" strokeWidth={2} />
             </span>
           }
-          title={
-              <span className="text-[#EE695D]">결제 기록 거부됨</span>
-          }
+          title={<span className="text-[#EE695D]">결제 기록 거부됨</span>}
           description="추후에 일괄로 등록할 수 있어요"
           // TODO: 일괄 등록 화면이 정해지면 연결합니다.
           onClick={closeRejectToast}
