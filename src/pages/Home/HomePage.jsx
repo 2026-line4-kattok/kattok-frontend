@@ -1,6 +1,6 @@
 import { Check, X } from 'lucide-react';
-import { useCallback, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import mrLifeImage from '@/assets/card/신한카드 Mr Life.png';
 import hanaKPassCheckImage from '@/assets/card/하나 K패스 체크카드.png';
 import Toast from '@/components/common/Toast';
@@ -155,9 +155,28 @@ function EmptyRecentCard({ onClick }) {
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const [pendingPayment, setPendingPayment] = useState(PENDING_PAYMENT);
+  const location = useLocation();
+  // 결제 상세 화면에서 "바로 결제"로 기록하고 돌아온 결제건
+  const [recordedPayment, setRecordedPayment] = useState(
+    location.state?.recordedPayment ?? null,
+  );
+  // TODO: API 연동 시 서버에서 갱신된 혜택 금액을 받아옵니다.
+  const [monthlyBenefit] = useState(
+    MONTHLY_BENEFIT + (location.state?.recordedPayment?.discount ?? 0),
+  );
+  const [pendingPayment, setPendingPayment] = useState(
+    recordedPayment?.id === PENDING_PAYMENT.id ? null : PENDING_PAYMENT,
+  );
   const [isRejectToastOpen, setIsRejectToastOpen] = useState(false);
   const closeRejectToast = useCallback(() => setIsRejectToastOpen(false), []);
+  const closeRecordToast = useCallback(() => setRecordedPayment(null), []);
+
+  // 새로고침·뒤로 가기 시 금액이 다시 더해지지 않도록 전달받은 state를 비웁니다.
+  useEffect(() => {
+    if (location.state?.recordedPayment) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate]);
 
   const handleRejectPayment = () => {
     // TODO: API 연동 시 결제 거부 여부를 서버에 기록합니다.
@@ -187,14 +206,13 @@ export default function HomePage() {
               이번 달 카똑으로 챙긴 혜택
             </span>
             <span className="shrink-0 font-['Pretendard'] text-[24px] leading-[120%] font-semibold whitespace-nowrap text-[#8C9EFF] max-phone-m:text-[20px] max-phone-s:text-[18px]">
-              {MONTHLY_BENEFIT.toLocaleString('ko-KR')}원
+              {monthlyBenefit.toLocaleString('ko-KR')}원
             </span>
           </button>
           {pendingPayment && (
             <PendingPaymentCard
               payment={pendingPayment}
-              // TODO: 결제 내역 상세 화면 연결
-              onMore={() => {}}
+              onMore={() => navigate(`/payment/${pendingPayment.id}`)}
               // TODO: API 연동 시 결제 여부를 서버에 기록합니다.
               onReject={handleRejectPayment}
               onConfirm={() => setPendingPayment(null)}
@@ -267,6 +285,24 @@ export default function HomePage() {
           // TODO: 일괄 등록 화면이 정해지면 연결합니다.
           onClick={closeRejectToast}
           onClose={closeRejectToast}
+        />
+      )}
+
+      {recordedPayment && (
+        <Toast
+          icon={
+            <span className="flex size-[24px] items-center justify-center rounded-full bg-[#8C9EFF]">
+              <Check className="size-[18px] text-[#FAFAFA]" strokeWidth={2} />
+            </span>
+          }
+          title={
+            <span className="text-[#A3B1FF]">
+              {recordedPayment.discount.toLocaleString('ko-KR')}원 기록
+            </span>
+          }
+          description={`${recordedPayment.place} 결제건에 대한 혜택을 받았어요`}
+          onClick={() => navigate(`/payment/${recordedPayment.id}`)}
+          onClose={closeRecordToast}
         />
       )}
 
