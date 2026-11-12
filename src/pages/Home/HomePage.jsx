@@ -193,8 +193,7 @@ export default function HomePage() {
           {pendingPayment && (
             <PendingPaymentCard
               payment={pendingPayment}
-              // TODO: 결제 내역 상세 화면 연결
-              onMore={() => {}}
+              onMore={() => navigate(`/payment/${pendingPayment.id}`)}
               // TODO: API 연동 시 결제 여부를 서버에 기록합니다.
               onReject={handleRejectPayment}
               onConfirm={() => setPendingPayment(null)}
