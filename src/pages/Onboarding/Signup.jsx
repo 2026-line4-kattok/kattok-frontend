@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ChevronLeft, Eye, EyeOff } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import eye from '@/assets/onboarding/eye.svg';
+import eyeoff from '@/assets/onboarding/eyeclose.svg';
 
 const STEPS = [1, 2, 3, 4];
 
@@ -73,7 +75,7 @@ export default function Signup() {
               value={form.id}
               onChange={handleChange}
               placeholder="아이디"
-              className="h-12 rounded-lg bg-neutral-200/70 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-300"
+              className="h-12 rounded-[8px] bg-[#EBEBEB] px-4 text-sm outline-none focus:ring-2 focus:ring-[#CACACA]"
             />
 
             <div className="relative">
@@ -83,7 +85,7 @@ export default function Signup() {
                 value={form.password}
                 onChange={handleChange}
                 placeholder="비밀번호"
-                className="h-12 w-full rounded-lg bg-neutral-200/70 px-4 pr-12 text-sm outline-none focus:ring-2 focus:ring-indigo-300"
+                className="h-12 w-full rounded-[8px] bg-[#EBEBEB] px-4 pr-12 text-sm outline-none focus:ring-2 focus:ring-[#CACACA]"
               />
               <button
                 type="button"
@@ -92,9 +94,9 @@ export default function Signup() {
                 className="absolute top-1/2 right-4 -translate-y-1/2 text-neutral-400"
               >
                 {showPassword ? (
-                  <Eye className="size-5" />
+                  <img src={eye} alt="" />
                 ) : (
-                  <EyeOff className="size-5" />
+                  <img src={eyeoff} alt="" />
                 )}
               </button>
             </div>

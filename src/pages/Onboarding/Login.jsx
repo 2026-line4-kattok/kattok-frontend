@@ -22,17 +22,40 @@ function FloatingField({
 
   return (
     <div className="relative">
+      {/* 테두리 전용 레이어*/}
+      <fieldset
+        aria-hidden="true"
+        className={cn(
+          'pointer-events-none absolute inset-x-0 top-[-5px] bottom-0 m-0 rounded-lg border px-4 py-0 transition-colors',
+          error
+            ? 'border-[#F8C5C0]'
+            : focused
+              ? 'border-[#CACACA]'
+              : 'border-transparent',
+        )}
+      >
+        <legend
+          className={cn(
+            'px-1 text-[10px] leading-none',
+            floated ? 'invisible block' : 'hidden',
+          )}
+        >
+          {label}
+        </legend>
+      </fieldset>
+
       <label
         htmlFor={name}
         className={cn(
-          'pointer-events-none absolute left-5 z-10 text-[#8E8E8E]',
+          'pointer-events-none absolute left-5 z-10 text-[#8E8E8E] transition-all duration-150',
           floated
-            ? '-top-[7px] bg-none text-[10px] leading-none'
-            : 'top-1/2 -translate-y-1/2 bg-transparent text-[16px]',
+            ? '-top-[5px] text-[10px] leading-none'
+            : 'top-1/2 -translate-y-1/2 text-[16px]',
         )}
       >
         {label}
       </label>
+
       <input
         id={name}
         name={name}
@@ -42,9 +65,8 @@ function FloatingField({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         className={cn(
-          'h-12 w-full rounded-lg border bg-[#EBEBEB] px-5 outline-none',
-          focused ? 'border-[#CACACA]' : 'border-transparent',
-          error && 'border-[#F8C5C0]',
+          'font-regular h-12 w-full rounded-lg bg-[#EBEBEB] px-5 font-[16px] text-[#6E6E6E] outline-none',
+          right && 'pr-12',
         )}
       />
       {right}
