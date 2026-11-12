@@ -8,6 +8,13 @@
   --breakpoint-phone-m: 23.5rem;
 
   --animate-slide-in: slide-in 0.3s ease-out;
+  --animate-caret-blink: caret-blink 1s step-end infinite;
+
+  @keyframes caret-blink {
+    50% {
+      opacity: 0;
+    }
+  }
 
   @keyframes slide-in {
     from {

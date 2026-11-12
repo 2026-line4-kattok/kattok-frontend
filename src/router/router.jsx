@@ -6,6 +6,7 @@ import Onboarding from '@/pages/Onboarding/Onboarding';
 import Signup from '@/pages/Onboarding/Signup';
 import CardChangePage from '@/pages/Home/PaymentDetail/CardChangePage';
 import PaymentDetailPage from '@/pages/Home/PaymentDetail/PaymentDetailPage';
+import AmountInputPage from '@/pages/Search/AmountInputPage';
 import SearchPage from '@/pages/Search/SearchPage';
 
 export const router = createBrowserRouter([
@@ -13,6 +14,7 @@ export const router = createBrowserRouter([
   { path: '/payment/:paymentId', element: <PaymentDetailPage /> },
   { path: '/payment/:paymentId/card', element: <CardChangePage /> },
   { path: '/search', element: <SearchPage /> },
+  { path: '/payment/amount', element: <AmountInputPage /> },
   { path: '*', element: <NotFoundPage /> },
   { path: '/onboarding', element: <Onboarding /> },
   { path: '/login', element: <Login /> },
