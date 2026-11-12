@@ -1,6 +1,9 @@
+import { Check, X } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import mrLifeImage from '@/assets/card/신한카드 Mr Life.png';
 import hanaKPassCheckImage from '@/assets/card/하나 K패스 체크카드.png';
+import Toast from '@/components/common/Toast';
 import BottomNav from '@/components/layout/BottomNav';
 
 const CATEGORIES = [
@@ -35,7 +38,71 @@ const RECENT_PAYMENTS = [
   },
 ];
 
+// 이전에 카드 추천을 받았지만 결제 완료 기록을 하지 않은 건
+// TODO: API 연동 시 서버 데이터로 교체합니다. (개발 중이라 기본으로 노출)
+const PENDING_PAYMENT = {
+  id: 1,
+  cardName: 'KB 국민 노리2',
+  place: '스타벅스',
+  amount: 30000,
+};
+
 const AMOUNT_PATH = '/payment/amount';
+
+// 결제 완료 여부 확인 카드
+function PendingPaymentCard({ payment, onMore, onReject, onConfirm }) {
+  const { cardName, place, amount } = payment;
+
+  return (
+    <div className="-mt-3 w-full overflow-hidden rounded-b-[8px] bg-[#EBEBEB]">
+      <div className="flex flex-col gap-3 px-[24px] pt-[27px] pb-[16px] max-phone-m:px-4 max-phone-xs:px-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-[6px]">
+            <span className="flex size-[20px] items-center justify-center rounded-full bg-[#C4C4C4] text-[14px] leading-none font-bold text-[#FAFAFA]">
+              !
+            </span>
+            <span className="font-['Pretendard'] text-[16px] leading-[140%] font-medium text-[#6E6E6E]">
+              확인
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onMore}
+            className="font-['Pretendard'] text-[14px] leading-[140%] font-normal text-[#8E8E8E]"
+          >
+            더보기
+          </button>
+        </div>
+        <div className="flex flex-col items-start">
+          <p className="font-['Pretendard'] text-[18px] leading-[120%] font-semibold text-[#121212]">
+            {cardName}로 결제하셨나요?
+          </p>
+          <p className="font-['Pretendard'] text-[14px] leading-[140%] font-normal text-[#8E8E8E]">
+            {place} · {amount.toLocaleString('ko-KR')}원
+          </p>
+        </div>
+      </div>
+      <div className="flex h-[36px]">
+        <button
+          type="button"
+          onClick={onReject}
+          aria-label="결제하지 않았어요"
+          className="flex flex-1 items-center justify-center bg-[#F8C5C0]"
+        >
+          <X className="size-[22px] text-[#D53D30]" strokeWidth={1.75} />
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          aria-label="결제했어요"
+          className="flex flex-1 items-center justify-center bg-[#CAD2FF]"
+        >
+          <Check className="size-[22px] text-[#7F90E8]" strokeWidth={1.75} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // 하단 최근 결제 카드 목록
 function RecentPaymentCard({ payment, onClick }) {
@@ -88,6 +155,15 @@ function EmptyRecentCard({ onClick }) {
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const [pendingPayment, setPendingPayment] = useState(PENDING_PAYMENT);
+  const [isRejectToastOpen, setIsRejectToastOpen] = useState(false);
+  const closeRejectToast = useCallback(() => setIsRejectToastOpen(false), []);
+
+  const handleRejectPayment = () => {
+    // TODO: API 연동 시 결제 거부 여부를 서버에 기록합니다.
+    setPendingPayment(null);
+    setIsRejectToastOpen(true);
+  };
 
   return (
     <div className="min-h-dvh bg-[#F1F1F1]">
@@ -101,18 +177,30 @@ export default function HomePage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => navigate('/mypage')}
-          className="flex min-h-[60px] w-full items-center justify-between gap-2 rounded-xl bg-[#fafafa] px-[24px] py-3 max-phone-m:px-4 max-phone-xs:px-3"
-        >
-          <span className="min-w-0 text-left font-['Pretendard'] text-[16px] leading-[140%] font-medium break-keep text-[#6E6E6E] max-phone-s:text-[14px]">
-            이번 달 카똑으로 챙긴 혜택
-          </span>
-          <span className="shrink-0 font-['Pretendard'] text-[24px] leading-[120%] font-semibold whitespace-nowrap text-[#8C9EFF] max-phone-m:text-[20px] max-phone-s:text-[18px]">
-            {MONTHLY_BENEFIT.toLocaleString('ko-KR')}원
-          </span>
-        </button>
+        <div className="flex w-full flex-col">
+          <button
+            type="button"
+            onClick={() => navigate('/mypage')}
+            className="relative z-10 flex min-h-[60px] w-full items-center justify-between gap-2 rounded-[8px] bg-[#fafafa] px-[24px] py-3 shadow-[0_4px_12px_0_rgba(0,0,0,0.04)] max-phone-m:px-4 max-phone-xs:px-3"
+          >
+            <span className="min-w-0 text-left font-['Pretendard'] text-[16px] leading-[140%] font-medium break-keep text-[#6E6E6E] max-phone-s:text-[14px]">
+              이번 달 카똑으로 챙긴 혜택
+            </span>
+            <span className="shrink-0 font-['Pretendard'] text-[24px] leading-[120%] font-semibold whitespace-nowrap text-[#8C9EFF] max-phone-m:text-[20px] max-phone-s:text-[18px]">
+              {MONTHLY_BENEFIT.toLocaleString('ko-KR')}원
+            </span>
+          </button>
+          {pendingPayment && (
+            <PendingPaymentCard
+              payment={pendingPayment}
+              // TODO: 결제 내역 상세 화면 연결
+              onMore={() => {}}
+              // TODO: API 연동 시 결제 여부를 서버에 기록합니다.
+              onReject={handleRejectPayment}
+              onConfirm={() => setPendingPayment(null)}
+            />
+          )}
+        </div>
 
         <section className="flex w-full flex-col gap-[12px]">
           <h2 className="font-['Pretendard'] text-[16px] leading-[140%] font-medium text-[#6E6E6E]">
@@ -166,6 +254,23 @@ export default function HomePage() {
           )}
         </section>
       </main>
+
+      {isRejectToastOpen && (
+        <Toast
+          icon={
+            <span className="flex size-[24px] items-center justify-center rounded-full bg-[#E46A5E]">
+              <X className="size-[18px] text-[#FAFAFA]" strokeWidth={2} />
+            </span>
+          }
+          title={
+              <span className="text-[#EE695D]">결제 기록 거부됨</span>
+          }
+          description="추후에 일괄로 등록할 수 있어요"
+          // TODO: 일괄 등록 화면이 정해지면 연결합니다.
+          onClick={closeRejectToast}
+          onClose={closeRejectToast}
+        />
+      )}
 
       <BottomNav />
     </div>
