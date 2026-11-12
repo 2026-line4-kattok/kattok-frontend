@@ -1,6 +1,10 @@
 import { ChevronLeft, Delete, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import {
+  createPaymentDetail,
+  hasBenefit,
+} from '@/pages/Home/PaymentDetail/paymentDetailData';
 
 const QUICK_ADDS = [
   { label: '+ 1천', value: 1_000 },
@@ -62,8 +66,10 @@ export default function AmountInputPage() {
   const title = place ?? category;
 
   const handleSave = () => {
-    // TODO: API 연동 시 결제 기록(장소, 업종, 금액)을 서버에 저장합니다.
-    navigate('/');
+    // TODO: API 연동 시 결제 기록(장소, 업종, 금액)을 서버에 저장하고 혜택 계산 결과를 받아옵니다.
+    const payment = createPaymentDetail({ place, category, amount });
+    // 받을 수 있는 혜택이 있으면 혜택 금액 확인 화면으로 이어집니다.
+    navigate(hasBenefit(payment) ? `/payment/${payment.id}` : '/');
   };
 
   return (

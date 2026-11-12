@@ -2,6 +2,7 @@ import { ChevronLeft, X } from 'lucide-react';
 import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { cn } from '@/utils/cn';
+import CardUsageSheet from './CardUsageSheet';
 import { formatWon, PAYMENT_DETAILS } from './paymentDetailData';
 
 function Header({ place, card, onBack, onClose }) {
@@ -42,8 +43,7 @@ function Header({ place, card, onBack, onClose }) {
   );
 }
 
-function CalculationSection({ amount, card, recommendedCard }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+function CalculationSection({ amount, card, recommendedCard, onMore }) {
   const { conditionNotice, remainingLimit } = card;
   const showsLimitNotice = !conditionNotice && remainingLimit !== undefined;
   const showsRecommendation = recommendedCard && recommendedCard.id !== card.id;
@@ -57,10 +57,10 @@ function CalculationSection({ amount, card, recommendedCard }) {
         {conditionNotice && (
           <button
             type="button"
-            onClick={() => setIsExpanded((prev) => !prev)}
+            onClick={onMore}
             className="font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]"
           >
-            {isExpanded ? '접기' : '더보기'}
+            더보기
           </button>
         )}
       </div>
@@ -78,12 +78,7 @@ function CalculationSection({ amount, card, recommendedCard }) {
                 {conditionNotice.title}
               </span>
             </div>
-            <p
-              className={cn(
-                "font-['Pretendard'] text-[14px] leading-[140%] font-[400] break-keep text-[#8E8E8E]",
-                !isExpanded && 'line-clamp-3',
-              )}
-            >
+            <p className="line-clamp-3 font-['Pretendard'] text-[14px] leading-[140%] font-[400] break-keep text-[#8E8E8E]">
               {conditionNotice.description}
             </p>
           </div>
@@ -178,6 +173,7 @@ export default function PaymentDetailPage() {
   const [selectedCardId, setSelectedCardId] = useState(
     state?.selectedCardId ?? payment?.recommendedCardId,
   );
+  const [isUsageSheetOpen, setIsUsageSheetOpen] = useState(false);
 
   if (!payment) {
     return (
@@ -249,6 +245,7 @@ export default function PaymentDetailPage() {
             recommendedCard={payment.cards.find(
               (card) => card.id === payment.recommendedCardId,
             )}
+            onMore={() => setIsUsageSheetOpen(true)}
           />
 
           <section className="flex w-full flex-col gap-[16px]">
@@ -307,6 +304,15 @@ export default function PaymentDetailPage() {
           바로 결제
         </button>
       </div>
+
+      {isUsageSheetOpen && (
+        <CardUsageSheet
+          card={selectedCard}
+          onClose={() => setIsUsageSheetOpen(false)}
+          // TODO: API 연동 시 입력한 사용 현황으로 혜택을 다시 계산합니다.
+          onSubmit={() => {}}
+        />
+      )}
     </div>
   );
 }
