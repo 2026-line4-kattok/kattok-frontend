@@ -42,9 +42,11 @@ function Header({ place, card, onBack, onClose }) {
   );
 }
 
-function CalculationSection({ amount, card }) {
+function CalculationSection({ amount, card, recommendedCard }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { conditionNotice } = card;
+  const { conditionNotice, remainingLimit } = card;
+  const showsLimitNotice = !conditionNotice && remainingLimit !== undefined;
+  const showsRecommendation = recommendedCard && recommendedCard.id !== card.id;
 
   return (
     <section className="flex w-full flex-col gap-[12px]">
@@ -86,6 +88,20 @@ function CalculationSection({ amount, card }) {
             </p>
           </div>
         )}
+        {showsLimitNotice && (
+          <div className="flex flex-col gap-[4px]">
+            <span className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] break-keep text-[#4B4B4B]">
+              남은 한도 {formatWon(remainingLimit)}까지만 적용돼요
+            </span>
+            {showsRecommendation && (
+              <p className="font-['Pretendard'] text-[14px] leading-[140%] font-[400] break-keep text-[#8E8E8E]">
+                확인된 정보로는{' '}
+                {recommendedCard.brandName ?? recommendedCard.name} 카드가 가장
+                유리해요
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -99,21 +115,36 @@ function OtherCardItem({ card, maxDiscount, onClick }) {
       <button
         type="button"
         onClick={onClick}
-        className="flex w-full items-center gap-[10px] items-start"
+        className="flex w-full items-center items-start gap-[10px]"
       >
-        <img
-          src={card.image}
-          alt={card.name}
-          className="h-[76px] w-[48px] shrink-0 rounded-[2px] object-cover aspect-[12/19]"
-        />
+        {/* 가로형 카드 이미지는 세로로 돌려서 보여줍니다 */}
+        <span className="relative h-[76px] w-[48px] shrink-0 overflow-hidden rounded-[2px]">
+          <img
+            src={card.image}
+            alt={card.name}
+            className={cn(
+              'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 object-cover',
+              card.isHorizontal
+                ? 'h-[48px] w-[76px] rotate-90'
+                : 'h-[76px] w-[48px]',
+            )}
+          />
+        </span>
         <div className="flex min-w-0 flex-1 flex-col gap-[10px]">
           <div className="flex items-start justify-between gap-[10px]">
             <div className="flex min-w-0 flex-col items-start">
               <span className="truncate font-['Pretendard'] text-[18px] leading-[120%] font-[600] text-[#4B4B4B]">
-                {card.name}
+                {card.brandName ?? card.name}
               </span>
-              <span className="font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]">
-                남은 한도 기준 적용
+              <span
+                className={cn(
+                  "font-['Pretendard'] text-[14px] leading-[140%] font-[400]",
+                  card.isConditional ? 'text-[#EE695D]' : 'text-[#8E8E8E]',
+                )}
+              >
+                {card.isConditional
+                  ? '카드 정보 미확인'
+                  : '남은 한도 기준 적용'}
               </span>
             </div>
             <span className="shrink-0 font-['Pretendard'] text-[20px] leading-[120%] font-[600] text-[#121212]">
@@ -174,59 +205,73 @@ export default function PaymentDetailPage() {
   const maxDiscount = Math.max(...payment.cards.map((card) => card.discount));
 
   return (
-    <div className="min-h-dvh bg-[#F1F1F1]">
-      <main className="mx-auto flex w-full max-w-[402px] flex-col items-center gap-[24px] px-[18px] pt-[48px] pb-[calc(104px+max(20px,env(safe-area-inset-bottom)))] max-phone-xs:px-3">
+    // 헤더는 고정하고 그 아래 영역만 스크롤합니다.
+    <div className="flex h-dvh flex-col bg-[#F1F1F1]">
+      <div className="mx-auto w-full max-w-[402px] shrink-0 px-[18px] pt-[48px] max-phone-xs:px-3">
         <Header
           place={payment.place}
           card={selectedCard}
           onBack={() => navigate(-1)}
           onClose={() => navigate('/')}
         />
+      </div>
 
-        <div className="flex flex-col items-center gap-[20px] mb-[12px]">
-          <img
-            src={selectedCard.image}
-            alt={selectedCard.name}
-            className={cn(
-              'rounded-[8px] object-cover h-[176px] w-[280px]'
+      <main className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto [&::-webkit-scrollbar]:hidden">
+        <div className="mx-auto flex w-full max-w-[402px] flex-col items-center gap-[24px] px-[18px] pt-[24px] pb-[calc(104px+max(20px,env(safe-area-inset-bottom)))] max-phone-xs:px-3">
+          <div className="mb-[12px] flex flex-col items-center gap-[20px]">
+            {/* 세로형 카드 이미지는 가로로 돌려서 보여줍니다 */}
+            <div className="relative h-[176px] w-[280px] overflow-hidden rounded-[8px]">
+              <img
+                src={selectedCard.image}
+                alt={selectedCard.name}
+                className={cn(
+                  'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 object-cover',
+                  selectedCard.isHorizontal
+                    ? 'h-[176px] w-[280px]'
+                    : 'h-[280px] w-[176px] -rotate-90',
+                )}
+              />
+            </div>
+            <p className="flex items-baseline gap-[6px]">
+              <span className="font-['Pretendard'] text-[36px] leading-[100%] font-[600] tracking-[-0.09px] text-[#121212]">
+                {formatWon(selectedCard.discount)}
+              </span>
+              <span className="font-['Pretendard'] text-[20px] leading-[120%] font-[400] text-[#8E8E8E]">
+                할인
+              </span>
+            </p>
+          </div>
+
+          <CalculationSection
+            key={selectedCard.id}
+            amount={payment.amount}
+            card={selectedCard}
+            recommendedCard={payment.cards.find(
+              (card) => card.id === payment.recommendedCardId,
             )}
           />
-          <p className="flex items-baseline gap-[6px]">
-            <span className="font-['Pretendard'] text-[36px] leading-[100%] font-[600] text-[#121212] tracking-[-0.09px]">
-              {formatWon(selectedCard.discount)}
-            </span>
-            <span className="font-['Pretendard'] text-[20px] leading-[120%] font-[400] text-[#8E8E8E]">
-              할인
-            </span>
-          </p>
+
+          <section className="flex w-full flex-col gap-[16px]">
+            <h2 className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#6E6E6E]">
+              다른 카드 선택
+            </h2>
+            <ul className="flex w-full flex-col gap-[20px]">
+              {otherCards.map((card) => (
+                <OtherCardItem
+                  key={card.id}
+                  card={card}
+                  maxDiscount={maxDiscount}
+                  onClick={() => setSelectedCardId(card.id)}
+                />
+              ))}
+            </ul>
+            <p className="font-['Pretendard'] text-[12px] leading-[120%] font-[400] break-keep text-[#969DA6]">
+              카똑이 계산하는 혜택 기준이에요. 통신요금 할인처럼 추천 미반영
+              혜택은 포함하지 않았고, 실제 지급액은 카드사 기준에 따라 달라질 수
+              있어요.
+            </p>
+          </section>
         </div>
-
-        <CalculationSection
-          key={selectedCard.id}
-          amount={payment.amount}
-          card={selectedCard}
-        />
-
-        <section className="flex w-full flex-col gap-[16px]">
-          <h2 className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#6E6E6E]">
-            다른 카드 선택
-          </h2>
-          <ul className="flex w-full flex-col gap-[20px]">
-            {otherCards.map((card) => (
-              <OtherCardItem
-                key={card.id}
-                card={card}
-                maxDiscount={maxDiscount}
-                onClick={() => setSelectedCardId(card.id)}
-              />
-            ))}
-          </ul>
-          <p className="font-['Pretendard'] text-[12px] leading-[120%] font-[400] break-keep text-[#969DA6]">
-            카똑이 계산하는 혜택 기준이에요. 통신요금 할인처럼 추천 미반영
-            혜택은 포함하지 않았고, 실제 지급액은 카드사 기준에 따라 달라질 수
-            있어요.
-          </p>
-        </section>
       </main>
 
       <div className="fixed inset-x-0 bottom-0 mx-auto flex w-full max-w-[402px] gap-3 bg-[#F1F1F1] px-[18px] pt-3 pb-[max(20px,env(safe-area-inset-bottom))] max-phone-xs:px-3">
@@ -244,8 +289,19 @@ export default function PaymentDetailPage() {
         </button>
         <button
           type="button"
-          // TODO: API 연동 시 선택한 카드로 결제 완료를 기록합니다.
-          onClick={() => navigate('/')}
+          // TODO: API 연동 시 선택한 카드로 결제 완료를 서버에 기록합니다.
+          onClick={() =>
+            navigate('/', {
+              replace: true,
+              state: {
+                recordedPayment: {
+                  id: payment.id,
+                  place: payment.place,
+                  discount: selectedCard.discount,
+                },
+              },
+            })
+          }
           className="flex h-[54px] flex-1 items-center justify-center rounded-[8px] bg-[#A3B1FF] font-['Pretendard'] text-[20px] leading-[120%] font-[600] text-[#3B426B]"
         >
           바로 결제

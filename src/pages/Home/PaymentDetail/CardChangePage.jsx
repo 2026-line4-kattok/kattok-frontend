@@ -24,7 +24,9 @@ function CardThumbnail({ card }) {
         alt={card.name}
         className={cn(
           'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 object-cover',
-          card.isHorizontal ? 'h-[64px] w-[102px]' : 'h-[102px] w-[64px] -rotate-90',
+          card.isHorizontal
+            ? 'h-[64px] w-[102px]'
+            : 'h-[102px] w-[64px] -rotate-90',
         )}
       />
     </span>
@@ -36,7 +38,11 @@ function getCardNote(card, category) {
     return { label: '등록하지 않은 카드' };
   }
   if (card.isConditional) {
-    return { label: '카드 정보 미확인', isWarning: true, discount: card.discount };
+    return {
+      label: '카드 정보 미확인',
+      isWarning: true,
+      discount: card.discount,
+    };
   }
   if (card.discount === 0) {
     return { label: `${category} 혜택 없음`, discount: card.discount };
@@ -136,8 +142,9 @@ export default function CardChangePage() {
   };
 
   return (
-    <div className="min-h-dvh bg-[#F1F1F1]">
-      <main className="mx-auto flex w-full max-w-[402px] flex-col px-4 pt-[71px] pb-[calc(66px+max(44px,env(safe-area-inset-bottom)))] max-phone-xs:px-3">
+    // 헤더는 고정하고 그 아래 영역만 스크롤합니다.
+    <div className="flex h-dvh flex-col bg-[#F1F1F1]">
+      <div className="mx-auto w-full max-w-[402px] shrink-0 px-4 pt-[71px] max-phone-xs:px-3">
         <header className="flex h-[40px] w-full items-center justify-between">
           <button
             type="button"
@@ -145,7 +152,11 @@ export default function CardChangePage() {
             aria-label="뒤로 가기"
             className="flex size-[40px] items-center justify-center text-[#CACACA]"
           >
-            <ChevronLeft className="size-[40px]" strokeWidth={2.5} absoluteStrokeWidth />
+            <ChevronLeft
+              className="size-[40px]"
+              strokeWidth={2.5}
+              absoluteStrokeWidth
+            />
           </button>
           <h1 className="font-['Pretendard'] text-[18px] leading-[120%] font-[600] text-[#4B4B4B]">
             결제 카드 변경
@@ -159,29 +170,35 @@ export default function CardChangePage() {
             <X className="size-[40px]" strokeWidth={2.5} absoluteStrokeWidth />
           </button>
         </header>
+      </div>
 
-        <div className="mt-[28px] flex flex-col gap-[8px]">
-          <h2 className="font-['Pretendard'] text-[24px] leading-[120%] font-[600] text-[#121212]">
-            어떤 카드로 결제할까요?
-          </h2>
-          <p className="font-['Pretendard'] text-[14px] leading-[140%] font-[400] break-keep text-[#4B4B4B]">
-            카똑은 해당 결제건에서 {recommendedCard?.brandName ?? recommendedCard?.name}카드를 추천했어요.
-            <br />
-            실제로 쓴 카드 기준으로 한도와 챙긴 혜택을 다시 계산해요.
-          </p>
+      <main className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto [&::-webkit-scrollbar]:hidden">
+        <div className="mx-auto flex w-full max-w-[402px] flex-col px-4 pb-[calc(66px+max(44px,env(safe-area-inset-bottom)))] max-phone-xs:px-3">
+          <div className="mt-[28px] flex flex-col gap-[8px]">
+            <h2 className="font-['Pretendard'] text-[24px] leading-[120%] font-[600] text-[#121212]">
+              어떤 카드로 결제할까요?
+            </h2>
+            <p className="font-['Pretendard'] text-[14px] leading-[140%] font-[400] break-keep text-[#4B4B4B]">
+              카똑은 해당 결제건에서{' '}
+              {recommendedCard?.brandName ?? recommendedCard?.name}카드를
+              추천했어요.
+              <br />
+              실제로 쓴 카드 기준으로 한도와 챙긴 혜택을 다시 계산해요.
+            </p>
+          </div>
+
+          <ul className="mt-[32px] flex w-full flex-col gap-[34px]">
+            {options.map((card) => (
+              <CardOption
+                key={card.id}
+                card={card}
+                category={payment.category}
+                isSelected={card.id === selectedCardId}
+                onSelect={() => setSelectedCardId(card.id)}
+              />
+            ))}
+          </ul>
         </div>
-
-        <ul className="mt-[32px] flex w-full flex-col gap-[34px]">
-          {options.map((card) => (
-            <CardOption
-              key={card.id}
-              card={card}
-              category={payment.category}
-              isSelected={card.id === selectedCardId}
-              onSelect={() => setSelectedCardId(card.id)}
-            />
-          ))}
-        </ul>
       </main>
 
       <div className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-[402px] bg-[#F1F1F1] px-4 pt-3 pb-[max(44px,env(safe-area-inset-bottom))] max-phone-xs:px-3">

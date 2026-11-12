@@ -35,6 +35,8 @@ export const PAYMENT_DETAILS = {
         image: mrLifeImage,
         discount: 2000,
         rate: 10,
+        // 이번 달 남은 할인 한도 (할인 금액이 이 한도까지만 적용됩니다)
+        remainingLimit: 2000,
         isConditional: false,
       },
       {
