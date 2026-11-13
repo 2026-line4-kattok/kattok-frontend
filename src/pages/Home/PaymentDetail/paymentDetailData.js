@@ -24,7 +24,7 @@ export const PAYMENT_DETAILS = {
         isConditional: true,
         // 지난달 실적 조건과 할인 한도를 확인해야 하는 업종 (카드 사용 현황 바텀시트에서 물어봅니다)
         performanceRequirement: 300000,
-        benefitCategories: ['카페', '편의점'],
+        benefitCategories: ['카페', '온라인 쇼핑'],
         conditionNotice: {
           title: '노리 2의 지난달 실적을 아직 몰라요',
           description:
@@ -68,6 +68,8 @@ const CARD_BENEFITS = [
     image: kbNori2Image,
     isHorizontal: true,
     rates: { 카페: 10, 편의점: 10 },
+    // 카드 사용 현황에서 할인 사용 금액을 물어볼 업종
+    benefitCategories: ['카페', '온라인 쇼핑'],
     // 지난달 실적을 몰라 조건을 채웠다고 가정하고 계산하는 카드
     isConditional: true,
     performanceRequirement: 300000,
@@ -91,11 +93,7 @@ const CARD_BENEFITS = [
   },
 ];
 
-const calculateCard = (
-  { rates, ...card },
-  category,
-  amount,
-) => {
+const calculateCard = ({ rates, ...card }, category, amount) => {
   const rate = rates[category] ?? 0;
   const fullDiscount = Math.floor((amount * rate) / 100);
   const discount =
@@ -107,7 +105,7 @@ const calculateCard = (
     ...card,
     rate,
     discount,
-    benefitCategories: Object.keys(rates),
+    benefitCategories: card.benefitCategories ?? Object.keys(rates),
     ...(card.isConditional &&
       rate > 0 && {
         conditionNotice: {

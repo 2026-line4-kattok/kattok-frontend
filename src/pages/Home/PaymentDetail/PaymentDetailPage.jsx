@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import PageHeader from '@/components/layout/PageHeader';
 import { cn } from '@/utils/cn';
+import CardUsageAmountScreen from './CardUsageAmountScreen';
 import CardUsageSheet from './CardUsageSheet';
 import { formatWon, PAYMENT_DETAILS } from './paymentDetailData';
 
@@ -150,7 +151,10 @@ export default function PaymentDetailPage() {
   const [selectedCardId, setSelectedCardId] = useState(
     state?.selectedCardId ?? payment?.recommendedCardId,
   );
-  const [isUsageSheetOpen, setIsUsageSheetOpen] = useState(false);
+  // 카드 사용 현황 입력: null(닫힘) | 'sheet'(선택지 바텀시트) | 'amount'(금액 직접 입력)
+  const [usageInput, setUsageInput] = useState(null);
+  // 카드별로 직접 입력한 사용 금액 (카드 id → { 질문 name → 금액 })
+  const [usageAmounts, setUsageAmounts] = useState({});
 
   if (!payment) {
     return (
@@ -220,7 +224,7 @@ export default function PaymentDetailPage() {
             recommendedCard={payment.cards.find(
               (card) => card.id === payment.recommendedCardId,
             )}
-            onMore={() => setIsUsageSheetOpen(true)}
+            onMore={() => setUsageInput('sheet')}
           />
 
           <section className="flex w-full flex-col gap-[16px]">
@@ -280,12 +284,29 @@ export default function PaymentDetailPage() {
         </button>
       </div>
 
-      {isUsageSheetOpen && (
+      {usageInput === 'sheet' && (
         <CardUsageSheet
           card={selectedCard}
-          onClose={() => setIsUsageSheetOpen(false)}
+          onClose={() => setUsageInput(null)}
+          onDirectInput={() => setUsageInput('amount')}
+          amounts={usageAmounts[selectedCard.id]}
           // TODO: API 연동 시 입력한 사용 현황으로 혜택을 다시 계산합니다.
           onSubmit={() => {}}
+        />
+      )}
+      {usageInput === 'amount' && (
+        <CardUsageAmountScreen
+          card={selectedCard}
+          initialAmounts={usageAmounts[selectedCard.id]}
+          onBack={() => setUsageInput('sheet')}
+          // 입력을 마치면 바텀시트로 돌아가 입력한 금액을 텍스트 필드로 보여줍니다.
+          onSubmit={(amounts) => {
+            setUsageAmounts((prev) => ({
+              ...prev,
+              [selectedCard.id]: amounts,
+            }));
+            setUsageInput('sheet');
+          }}
         />
       )}
     </div>
