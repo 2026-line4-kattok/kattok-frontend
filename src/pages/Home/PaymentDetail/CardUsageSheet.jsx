@@ -90,7 +90,7 @@ export default function CardUsageSheet({
       : []),
     ...categories.map((category) => ({
       name: `remaining-${category}`,
-      question: `이번 달 ${category} 할인 얼마나 남았나요?`,
+      question: `이번 달 ${category} 할인 얼마나 받았나요?`,
       amountLabel: '잔여 한도',
       options: [
         { value: 'used', label: '다 썼어요' },
@@ -205,18 +205,24 @@ export default function CardUsageSheet({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={openDirectInput}
-          className="mx-auto mt-[32px] font-['Pretendard'] text-[14px] leading-[140%] font-[500] text-[#6E6E6E] underline underline-offset-2"
-        >
-          금액을 알면 직접 입력할 수 있어요
-        </button>
+        {/* 이미 금액을 직접 입력한 상태에서는 직접 입력 버튼을 보여주지 않습니다. */}
+        {!amounts && (
+          <button
+            type="button"
+            onClick={openDirectInput}
+            className="mx-auto mt-[32px] font-['Pretendard'] text-[14px] leading-[140%] font-[500] text-[#6E6E6E] underline underline-offset-2"
+          >
+            금액을 알면 직접 입력할 수 있어요
+          </button>
+        )}
 
         <button
           type="button"
           onClick={handleSubmit}
-          className="mt-[12px] flex h-[54px] w-full shrink-0 items-center justify-center rounded-[27px] bg-[#121212] font-['Pretendard'] text-[20px] leading-[120%] font-[600] text-[#FAFAFA]"
+          className={cn(
+            amounts ? 'mt-[32px]' : 'mt-[12px]',
+            "flex h-[54px] w-full shrink-0 items-center justify-center rounded-[27px] bg-[#121212] font-['Pretendard'] text-[20px] leading-[120%] font-[600] text-[#FAFAFA]",
+          )}
         >
           카드 추천 받기
         </button>

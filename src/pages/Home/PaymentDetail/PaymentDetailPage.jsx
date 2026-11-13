@@ -205,6 +205,9 @@ export default function PaymentDetailPage() {
     cards.find((card) => card.id === selectedCardId) ?? cards[0];
   const otherCards = cards.filter((card) => card.id !== selectedCard.id);
   const maxDiscount = Math.max(...cards.map((card) => card.discount));
+  // 카드 정보를 업데이트해 다시 계산한 뒤에는 "내 카드 비교"로 보여줍니다.
+  const otherCardsTitle =
+    verifiedCardIds.length > 0 ? '내 카드 비교' : '다른 카드 선택';
 
   return (
     // 헤더는 고정하고 그 아래 영역만 스크롤합니다.
@@ -218,7 +221,7 @@ export default function PaymentDetailPage() {
 
       <main className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto [&::-webkit-scrollbar]:hidden">
         {isLoading ? (
-          <PaymentDetailSkeleton />
+          <PaymentDetailSkeleton otherCardsTitle={otherCardsTitle} />
         ) : (
           <div className="mx-auto flex w-full max-w-[402px] flex-col items-center gap-[24px] px-[18px] pt-[24px] pb-[calc(104px+max(20px,env(safe-area-inset-bottom)))] max-phone-xs:px-3">
             <div className="mb-[12px] flex flex-col items-center gap-[20px]">
@@ -257,7 +260,7 @@ export default function PaymentDetailPage() {
 
             <section className="flex w-full flex-col gap-[16px]">
               <h2 className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#6E6E6E]">
-                내 카드 비교
+                {otherCardsTitle}
               </h2>
               <ul className="flex w-full flex-col gap-[20px]">
                 {otherCards.map((card) => (
