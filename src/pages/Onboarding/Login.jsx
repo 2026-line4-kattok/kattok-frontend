@@ -1,13 +1,25 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router';
 import { ChevronLeft, Check } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import eye from '@/assets/onboarding/eye.svg';
 import eyeclose from '@/assets/onboarding/eyeclose.svg';
 import warning from '@/assets/onboarding/Warning.svg';
-import login_check from '@/assets/onboarding/login_check.svg';
 
-/*상단 아이디, 비밀번호*/
+import LoginResult from './LoginResult';
+import exampleCard1 from '@/assets/onboarding/card/eco-plan.png';
+import exampleCard2 from '@/assets/onboarding/card/hey-young.png';
+import exampleCard3 from '@/assets/onboarding/card/bbig.png';
+
+// Temporary preview data until the login/card API is connected.
+const EXAMPLE_CARDS = [
+  { id: 1, name: 'ECO Plan', image: exampleCard1 },
+  { id: 2, name: 'Hey Young', image: exampleCard2 },
+  { id: 3, name: 'B.Big', image: exampleCard3 },
+];
+
+/*
+상단 아이디, 비밀번호*/
 function FloatingField({
   label,
   name,
@@ -76,11 +88,20 @@ function FloatingField({
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const cards = location.state?.registeredCards ?? EXAMPLE_CARDS;
   const [form, setForm] = useState({ id: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [autoLogin, setAutoLogin] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('idle'); // idle | loading
+
+  useEffect(() => {
+    if (status !== 'loading') return;
+    // Replace this preview delay with the card API response.
+    const timer = window.setTimeout(() => setStatus('complete'), 1500);
+    return () => window.clearTimeout(timer);
+  }, [status]);
 
   const isValid = form.id.trim() !== '' && form.password !== '';
 
@@ -104,25 +125,8 @@ export default function Login() {
   };
 
   /* 로그인 완료 → 카드 정보 불러오는 화면 */
-  if (status === 'loading') {
-    return (
-      <div className="mx-auto flex min-h-screen max-w-[402px] flex-col items-center justify-center overflow-hidden bg-[#F1F1F1]">
-        <img src={login_check} className="mt-[190px] h-20 w-20" />
-        <h1 className="mt-7 text-[24px] font-semibold text-[#3B426B]">
-          로그인 완료!
-        </h1>
-        <p className="font-regular mt-2 text-[16px] text-[#8E8E8E]">
-          카드 정보를 불러오고 있어요...
-        </p>
-
-        {/* 카드 스켈레톤 */}
-        <div className="mt-12 flex w-full items-center justify-center gap-4">
-          <div className="h-[340px] w-[215px] shrink-0 rounded-[14px] bg-gradient-to-b from-[#E2E2E2] via-[#FAFAFA] to-[#E2E2E2] shadow-[0_0_12px_rgba(0,0,0,0.04)]" />
-          <div className="h-[340px] w-[215px] shrink-0 rounded-[14px] bg-gradient-to-b from-[#E2E2E2] via-[#FAFAFA] to-[#E2E2E2] shadow-[0_0_12px_rgba(0,0,0,0.04)]" />
-          <div className="h-[340px] w-[215px] shrink-0 rounded-[14px] bg-gradient-to-b from-[#E2E2E2] via-[#FAFAFA] to-[#E2E2E2] shadow-[0_0_12px_rgba(0,0,0,0.04)]" />
-        </div>
-      </div>
-    );
+  if (status === 'loading' || status === 'complete') {
+    return <LoginResult cards={cards} loading={status === 'loading'} />;
   }
 
   return (
@@ -135,11 +139,11 @@ export default function Login() {
           onClick={() => navigate('/onboarding', { state: { back: true } })}
           aria-label="뒤로 가기"
         >
-          <ChevronLeft className="size-6 text-neutral-400" />
+          <ChevronLeft className="size-6 cursor-pointer text-[#CACACA]" />
         </button>
       </header>
 
-      <form onSubmit={handleSubmit} className="flex flex-1 flex-col">
+      <form onSubmit={handleSubmit} className="group flex flex-1 flex-col">
         {/* 타이틀 */}
         <div className="mt-6">
           <h1 className="text-[24px] font-semibold text-[#121212]">
@@ -214,7 +218,7 @@ export default function Login() {
           type="submit"
           disabled={!isValid}
           className={cn(
-            'mt-auto mb-11 h-12 h-[54px] cursor-pointer items-center justify-center rounded-[27px] p-[10px] text-[20px] font-semibold transition-colors',
+            'mt-auto mb-11 h-12 h-[54px] cursor-pointer items-center justify-center rounded-[8px] p-[10px] text-[20px] font-semibold transition-colors group-has-[input[name]:focus]:rounded-[27px]',
             isValid
               ? 'bg-[#A3B1FF] text-[#3B426B]'
               : 'bg-[#DBE1FF] text-[#B2BEFF]',
