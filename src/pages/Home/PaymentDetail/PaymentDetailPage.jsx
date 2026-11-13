@@ -1,9 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import PageHeader from '@/components/layout/PageHeader';
 import { cn } from '@/utils/cn';
+import CardUsageAmountScreen from './CardUsageAmountScreen';
 import CardUsageSheet from './CardUsageSheet';
-import { formatWon, PAYMENT_DETAILS } from './paymentDetailData';
+import PaymentDetailSkeleton from './PaymentDetailSkeleton';
+import {
+  applyCardUsage,
+  formatWon,
+  PAYMENT_DETAILS,
+} from './paymentDetailData';
 
 function CardSubtitle({ card }) {
   return (
@@ -48,16 +54,21 @@ function CalculationSection({ amount, card, recommendedCard, onMore }) {
         {conditionNotice && (
           <div className="flex flex-col gap-[4px]">
             <div className="flex items-center gap-[8px]">
-              <span className="flex size-[20px] shrink-0 items-center justify-center rounded-full bg-[#F8C5C0] text-[13px] leading-none font-bold text-[#FAFAFA]">
-                !
-              </span>
+              {/* 사용 현황을 알려줘 다시 계산한 카드는 경고 아이콘 없이 보여줍니다 */}
+              {!card.isVerified && (
+                <span className="flex size-[20px] shrink-0 items-center justify-center rounded-full bg-[#F8C5C0] text-[13px] leading-none font-bold text-[#FAFAFA]">
+                  !
+                </span>
+              )}
               <span className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] break-keep text-[#4B4B4B]">
                 {conditionNotice.title}
               </span>
             </div>
-            <p className="line-clamp-3 font-['Pretendard'] text-[14px] leading-[140%] font-[400] break-keep text-[#8E8E8E]">
-              {conditionNotice.description}
-            </p>
+            {conditionNotice.description && (
+              <p className="line-clamp-3 font-['Pretendard'] text-[14px] leading-[140%] font-[400] break-keep text-[#8E8E8E]">
+                {conditionNotice.description}
+              </p>
+            )}
           </div>
         )}
         {showsLimitNotice && (
@@ -141,6 +152,8 @@ function OtherCardItem({ card, maxDiscount, onClick }) {
   );
 }
 
+const LOADING_DELAY = 800;
+
 export default function PaymentDetailPage() {
   const navigate = useNavigate();
   const { state } = useLocation();
@@ -150,7 +163,21 @@ export default function PaymentDetailPage() {
   const [selectedCardId, setSelectedCardId] = useState(
     state?.selectedCardId ?? payment?.recommendedCardId,
   );
-  const [isUsageSheetOpen, setIsUsageSheetOpen] = useState(false);
+  // 카드 사용 현황 입력: null(닫힘) | 'sheet'(선택지 바텀시트) | 'amount'(금액 직접 입력)
+  const [usageInput, setUsageInput] = useState(null);
+  // 카드별로 직접 입력한 사용 금액 (카드 id → { 질문 name → 금액 })
+  const [usageAmounts, setUsageAmounts] = useState({});
+  // 혜택 금액을 계산하는 동안 본문 대신 스켈레톤을 보여줍니다.
+  const [isLoading, setIsLoading] = useState(true);
+  // 카드 사용 현황을 알려줘 다시 계산한 카드 id
+  const [verifiedCardIds, setVerifiedCardIds] = useState([]);
+
+  // TODO: API 연동 시 혜택 계산 요청이 끝나면 로딩을 끝냅니다. 지금은 잠깐 기다리는 것으로 대신합니다.
+  useEffect(() => {
+    if (!isLoading) return;
+    const timer = setTimeout(() => setIsLoading(false), LOADING_DELAY);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   if (!payment) {
     return (
@@ -169,13 +196,15 @@ export default function PaymentDetailPage() {
     );
   }
 
-  const selectedCard =
-    payment.cards.find((card) => card.id === selectedCardId) ??
-    payment.cards[0];
-  const otherCards = payment.cards.filter(
-    (card) => card.id !== selectedCard.id,
+  const cards = payment.cards.map((card) =>
+    verifiedCardIds.includes(card.id)
+      ? applyCardUsage(card, payment.amount)
+      : card,
   );
-  const maxDiscount = Math.max(...payment.cards.map((card) => card.discount));
+  const selectedCard =
+    cards.find((card) => card.id === selectedCardId) ?? cards[0];
+  const otherCards = cards.filter((card) => card.id !== selectedCard.id);
+  const maxDiscount = Math.max(...cards.map((card) => card.discount));
 
   return (
     // 헤더는 고정하고 그 아래 영역만 스크롤합니다.
@@ -188,67 +217,72 @@ export default function PaymentDetailPage() {
       />
 
       <main className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto [&::-webkit-scrollbar]:hidden">
-        <div className="mx-auto flex w-full max-w-[402px] flex-col items-center gap-[24px] px-[18px] pt-[24px] pb-[calc(104px+max(20px,env(safe-area-inset-bottom)))] max-phone-xs:px-3">
-          <div className="mb-[12px] flex flex-col items-center gap-[20px]">
-            {/* 세로형 카드 이미지는 가로로 돌려서 보여줍니다 */}
-            <div className="relative h-[176px] w-[280px] overflow-hidden rounded-[8px]">
-              <img
-                src={selectedCard.image}
-                alt={selectedCard.name}
-                className={cn(
-                  'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 object-cover',
-                  selectedCard.isHorizontal
-                    ? 'h-[176px] w-[280px]'
-                    : 'h-[280px] w-[176px] -rotate-90',
-                )}
-              />
-            </div>
-            <p className="flex items-baseline gap-[6px]">
-              <span className="font-['Pretendard'] text-[36px] leading-[100%] font-[600] tracking-[-0.09px] text-[#121212]">
-                {formatWon(selectedCard.discount)}
-              </span>
-              <span className="font-['Pretendard'] text-[20px] leading-[120%] font-[400] text-[#8E8E8E]">
-                할인
-              </span>
-            </p>
-          </div>
-
-          <CalculationSection
-            key={selectedCard.id}
-            amount={payment.amount}
-            card={selectedCard}
-            recommendedCard={payment.cards.find(
-              (card) => card.id === payment.recommendedCardId,
-            )}
-            onMore={() => setIsUsageSheetOpen(true)}
-          />
-
-          <section className="flex w-full flex-col gap-[16px]">
-            <h2 className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#6E6E6E]">
-              다른 카드 선택
-            </h2>
-            <ul className="flex w-full flex-col gap-[20px]">
-              {otherCards.map((card) => (
-                <OtherCardItem
-                  key={card.id}
-                  card={card}
-                  maxDiscount={maxDiscount}
-                  onClick={() => setSelectedCardId(card.id)}
+        {isLoading ? (
+          <PaymentDetailSkeleton />
+        ) : (
+          <div className="mx-auto flex w-full max-w-[402px] flex-col items-center gap-[24px] px-[18px] pt-[24px] pb-[calc(104px+max(20px,env(safe-area-inset-bottom)))] max-phone-xs:px-3">
+            <div className="mb-[12px] flex flex-col items-center gap-[20px]">
+              {/* 세로형 카드 이미지는 가로로 돌려서 보여줍니다 */}
+              <div className="relative h-[176px] w-[280px] overflow-hidden rounded-[8px]">
+                <img
+                  src={selectedCard.image}
+                  alt={selectedCard.name}
+                  className={cn(
+                    'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 object-cover',
+                    selectedCard.isHorizontal
+                      ? 'h-[176px] w-[280px]'
+                      : 'h-[280px] w-[176px] -rotate-90',
+                  )}
                 />
-              ))}
-            </ul>
-            <p className="font-['Pretendard'] text-[12px] leading-[120%] font-[400] break-keep text-[#969DA6]">
-              카똑이 계산하는 혜택 기준이에요. 통신요금 할인처럼 추천 미반영
-              혜택은 포함하지 않았고, 실제 지급액은 카드사 기준에 따라 달라질 수
-              있어요.
-            </p>
-          </section>
-        </div>
+              </div>
+              <p className="flex items-baseline gap-[6px]">
+                <span className="font-['Pretendard'] text-[36px] leading-[100%] font-[600] tracking-[-0.09px] text-[#121212]">
+                  {formatWon(selectedCard.discount)}
+                </span>
+                <span className="font-['Pretendard'] text-[20px] leading-[120%] font-[400] text-[#8E8E8E]">
+                  할인
+                </span>
+              </p>
+            </div>
+
+            <CalculationSection
+              key={selectedCard.id}
+              amount={payment.amount}
+              card={selectedCard}
+              recommendedCard={cards.find(
+                (card) => card.id === payment.recommendedCardId,
+              )}
+              onMore={() => setUsageInput('sheet')}
+            />
+
+            <section className="flex w-full flex-col gap-[16px]">
+              <h2 className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#6E6E6E]">
+                내 카드 비교
+              </h2>
+              <ul className="flex w-full flex-col gap-[20px]">
+                {otherCards.map((card) => (
+                  <OtherCardItem
+                    key={card.id}
+                    card={card}
+                    maxDiscount={maxDiscount}
+                    onClick={() => setSelectedCardId(card.id)}
+                  />
+                ))}
+              </ul>
+              <p className="font-['Pretendard'] text-[12px] leading-[120%] font-[400] break-keep text-[#969DA6]">
+                카똑이 계산하는 혜택 기준이에요. 통신요금 할인처럼 추천 미반영
+                혜택은 포함하지 않았고, 실제 지급액은 카드사 기준에 따라 달라질
+                수 있어요.
+              </p>
+            </section>
+          </div>
+        )}
       </main>
 
       <div className="fixed inset-x-0 bottom-0 mx-auto flex w-full max-w-[402px] gap-3 bg-[#F1F1F1] px-[18px] pt-3 pb-[max(20px,env(safe-area-inset-bottom))] max-phone-xs:px-3">
         <button
           type="button"
+          disabled={isLoading}
           onClick={() =>
             navigate(`/payment/${payment.id}/card`, {
               replace: true,
@@ -261,6 +295,7 @@ export default function PaymentDetailPage() {
         </button>
         <button
           type="button"
+          disabled={isLoading}
           // TODO: API 연동 시 선택한 카드로 결제 완료를 서버에 기록합니다.
           onClick={() =>
             navigate('/', {
@@ -280,12 +315,36 @@ export default function PaymentDetailPage() {
         </button>
       </div>
 
-      {isUsageSheetOpen && (
+      {usageInput === 'sheet' && (
         <CardUsageSheet
           card={selectedCard}
-          onClose={() => setIsUsageSheetOpen(false)}
+          onClose={() => setUsageInput(null)}
+          onDirectInput={() => setUsageInput('amount')}
+          amounts={usageAmounts[selectedCard.id]}
           // TODO: API 연동 시 입력한 사용 현황으로 혜택을 다시 계산합니다.
-          onSubmit={() => {}}
+          onSubmit={() => {
+            setVerifiedCardIds((prev) =>
+              prev.includes(selectedCard.id)
+                ? prev
+                : [...prev, selectedCard.id],
+            );
+            setIsLoading(true);
+          }}
+        />
+      )}
+      {usageInput === 'amount' && (
+        <CardUsageAmountScreen
+          card={selectedCard}
+          initialAmounts={usageAmounts[selectedCard.id]}
+          onBack={() => setUsageInput('sheet')}
+          // 입력을 마치면 바텀시트로 돌아가 입력한 금액을 텍스트 필드로 보여줍니다.
+          onSubmit={(amounts) => {
+            setUsageAmounts((prev) => ({
+              ...prev,
+              [selectedCard.id]: amounts,
+            }));
+            setUsageInput('sheet');
+          }}
         />
       )}
     </div>

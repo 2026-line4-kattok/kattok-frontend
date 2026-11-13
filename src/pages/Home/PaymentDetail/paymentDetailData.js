@@ -24,7 +24,9 @@ export const PAYMENT_DETAILS = {
         isConditional: true,
         // 지난달 실적 조건과 할인 한도를 확인해야 하는 업종 (카드 사용 현황 바텀시트에서 물어봅니다)
         performanceRequirement: 300000,
-        benefitCategories: ['카페', '편의점'],
+        // 월 할인 한도
+        monthlyLimit: 3000,
+        benefitCategories: ['카페', '온라인 쇼핑'],
         conditionNotice: {
           title: '노리 2의 지난달 실적을 아직 몰라요',
           description:
@@ -57,6 +59,34 @@ export const PAYMENT_DETAILS = {
 
 export const formatWon = (value) => `${value.toLocaleString('ko-KR')}원`;
 
+// 카드 사용 현황(실적·할인 사용 금액)을 알려준 조건부 카드를 다시 계산합니다.
+// TODO: API 연동 시 입력한 사용 현황을 보내고 서버에서 다시 계산된 혜택을 받아옵니다.
+export const applyCardUsage = (card, amount) => {
+  const fullDiscount = Math.floor((amount * card.rate) / 100);
+  const limit = card.monthlyLimit;
+  const discount =
+    limit === undefined ? fullDiscount : Math.min(fullDiscount, limit);
+
+  let description;
+  if (limit !== undefined) {
+    description =
+      discount < fullDiscount
+        ? `월 한도 ${formatWon(limit)}까지만 적용돼요.`
+        : `월 한도 ${formatWon(limit)} 안이라 혜택이 전부 적용돼요.`;
+  }
+
+  return {
+    ...card,
+    discount,
+    isConditional: false,
+    isVerified: true,
+    conditionNotice: {
+      title: '알려주신 실적으로 다시 계산했어요',
+      description,
+    },
+  };
+};
+
 // 업종별 카드 혜택 (업종 → 할인율 %)
 // TODO: API 연동 시 서버에서 금액·장소 기준으로 계산된 혜택을 받아옵니다.
 const CARD_BENEFITS = [
@@ -68,9 +98,13 @@ const CARD_BENEFITS = [
     image: kbNori2Image,
     isHorizontal: true,
     rates: { 카페: 10, 편의점: 10 },
+    // 카드 사용 현황에서 할인 사용 금액을 물어볼 업종
+    benefitCategories: ['카페', '온라인 쇼핑'],
     // 지난달 실적을 몰라 조건을 채웠다고 가정하고 계산하는 카드
     isConditional: true,
     performanceRequirement: 300000,
+    // 월 할인 한도
+    monthlyLimit: 3000,
   },
   {
     id: 'shinhan-mr-life',
@@ -103,7 +137,7 @@ const calculateCard = ({ rates, ...card }, category, amount) => {
     ...card,
     rate,
     discount,
-    benefitCategories: Object.keys(rates),
+    benefitCategories: card.benefitCategories ?? Object.keys(rates),
     ...(card.isConditional &&
       rate > 0 && {
         conditionNotice: {
