@@ -53,7 +53,7 @@ export default function PaymentDetailSkeleton() {
 
       <section className="flex w-full flex-col gap-[16px]">
         <h2 className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#6E6E6E]">
-          다른 카드 선택
+          내 카드 비교
         </h2>
         <ul className="flex w-full flex-col gap-[20px]">
           <OtherCardSkeleton />
