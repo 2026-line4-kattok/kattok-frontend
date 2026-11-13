@@ -584,17 +584,29 @@ export default function Signup() {
                       }}
                       className="flex w-full min-w-0 cursor-pointer flex-col gap-1"
                     >
-                      <div className={cn(
-                        'relative aspect-[114/180] w-full overflow-hidden rounded-[8px] border',
-                        isSelected ? 'border-[#3B426B]' : 'border-transparent',
-                      )}>
-                        <Thumb src={c.image} text="" className="h-full w-full" />
-                        {isSelected && <div className="absolute inset-0 bg-[#3B426BBF]" />}
+                      <div
+                        className={cn(
+                          'relative aspect-[114/180] w-full overflow-hidden rounded-[8px] border',
+                          isSelected
+                            ? 'border-[#3B426B]'
+                            : 'border-transparent',
+                        )}
+                      >
+                        <Thumb
+                          src={c.image}
+                          text=""
+                          className="h-full w-full"
+                        />
+                        {isSelected && (
+                          <div className="absolute inset-0 bg-[#3B426BBF]" />
+                        )}
                       </div>
-                      <span className={cn(
-                        'w-full text-center text-[16px] whitespace-pre-line',
-                        isSelected ? 'text-[#7F90E8]' : 'text-[#8E8E8E]',
-                      )}>
+                      <span
+                        className={cn(
+                          'w-full text-center text-[16px] whitespace-pre-line',
+                          isSelected ? 'text-[#7F90E8]' : 'text-[#8E8E8E]',
+                        )}
+                      >
                         {c.name.replace(' ', '\n')}
                       </span>
                     </button>
