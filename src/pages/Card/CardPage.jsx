@@ -1,7 +1,11 @@
-import { Ellipsis, Plus } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { Check, Ellipsis, Plus } from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
+import Toast from '@/components/common/Toast';
 import BottomNav from '@/components/layout/BottomNav';
 import { cn } from '@/utils/cn';
+import CardUsageAmountScreen from '@/pages/Home/PaymentDetail/CardUsageAmountScreen';
+import CardUsageSheet from '@/pages/Home/PaymentDetail/CardUsageSheet';
+import CardMoreSheet from './CardMoreSheet';
 import { MY_CARDS } from './cardData';
 import { EditIcon } from '@/assets/icons/icons';
 
@@ -25,12 +29,12 @@ function CardImage({ card }) {
         draggable={false}
         className={cn(
           'absolute top-1/2 left-1/2 max-w-none -translate-1/2 object-cover',
-          card.isPortrait ? '-rotate-90' : 'size-full',
+          card.isHorizontal ? 'size-full' : '-rotate-90',
         )}
         style={
-          card.isPortrait
-            ? { width: CARD_HEIGHT, height: CARD_WIDTH }
-            : undefined
+          card.isHorizontal
+            ? undefined
+            : { width: CARD_HEIGHT, height: CARD_WIDTH }
         }
       />
       {/* 실적 확인이 필요한 카드는 비활성화된 것처럼 뿌옇게 덮습니다. */}
@@ -110,13 +114,26 @@ function BenefitItem({ benefit, onEdit, onEnterLimit }) {
 
 export default function CardPage() {
   const scrollRef = useRef(null);
+  // TODO: API 연동 시 서버 데이터로 교체합니다. (실적 등록 결과를 화면에 반영하기 위해 상태로 둡니다.)
+  const [cards, setCards] = useState(MY_CARDS);
   // 스크롤 위치를 카드 단위로 환산한 값 (0 = 첫 카드가 가운데, 1.5 = 두 번째와 세 번째 카드 사이)
   const [scrollPosition, setScrollPosition] = useState(0);
   const activeIndex = Math.min(
     Math.max(Math.round(scrollPosition), 0),
-    MY_CARDS.length - 1,
+    cards.length - 1,
   );
-  const activeCard = MY_CARDS[activeIndex];
+  const activeCard = cards[activeIndex];
+  const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
+  // 실적 저장 완료 토스트에 보여줄 카드 (저장 전 isPerformanceConfirmed가 false면 처음 등록, true면 수정)
+  const [registeredCard, setRegisteredCard] = useState(null);
+  const closeRegisteredToast = useCallback(
+    () => setRegisteredCard(null),
+    [setRegisteredCard],
+  );
+  // 카드 사용 현황 입력: null | 'sheet'(바텀시트) | 'amount'(금액 직접 입력 화면)
+  const [usageInput, setUsageInput] = useState(null);
+  // 카드별로 직접 입력한 금액
+  const [usageAmounts, setUsageAmounts] = useState({});
 
   const handleScroll = () => {
     setScrollPosition(scrollRef.current.scrollLeft / (CARD_WIDTH + CARD_GAP));
@@ -141,8 +158,12 @@ export default function CardPage() {
               {activeCard.type}
             </p>
           </div>
-          {/* TODO: 더보기 메뉴(카드 삭제 등)가 정해지면 연결합니다. */}
-          <button type="button" aria-label="카드 더보기" className="p-1">
+          <button
+            type="button"
+            aria-label="카드 더보기"
+            onClick={() => setIsMoreSheetOpen(true)}
+            className="p-1"
+          >
             <Ellipsis className="size-[24px] text-[#C4C4C4]" />
           </button>
         </header>
@@ -154,7 +175,7 @@ export default function CardPage() {
           className="mt-[36px] flex snap-x snap-mandatory [scrollbar-width:none] items-end overflow-x-auto px-[calc(50%-108px)] [&::-webkit-scrollbar]:hidden"
           style={{ gap: CARD_GAP }}
         >
-          {MY_CARDS.map((card, index) => {
+          {cards.map((card, index) => {
             const isActive = index === activeIndex;
             // 가운데에서 멀어질수록(0~1) 작고 흐려집니다. 스크롤에 맞춰 연속으로 변해 카드가 튀지 않습니다.
             const offset = index - scrollPosition;
@@ -216,8 +237,7 @@ export default function CardPage() {
               <BenefitItem
                 key={benefit.id}
                 benefit={benefit}
-                // TODO: 혜택 사용 금액 수정 화면이 정해지면 연결합니다.
-                onEdit={() => {}}
+                onEdit={() => setUsageInput('sheet')}
                 // TODO: 한도 입력 화면이 정해지면 연결합니다.
                 onEnterLimit={() => {}}
               />
@@ -226,7 +246,93 @@ export default function CardPage() {
         </section>
       </main>
 
+      {registeredCard && (
+        <Toast
+          icon={
+            <span className="relative size-full">
+              <img
+                src={registeredCard.image}
+                alt=""
+                className={cn(
+                  'absolute top-1/2 left-1/2 max-w-none -translate-1/2 object-cover',
+                  registeredCard.isHorizontal
+                    ? 'h-[60px] w-[95px]'
+                    : 'h-[95px] w-[60px] -rotate-90',
+                )}
+              />
+              <span className="absolute inset-0 flex items-center justify-center bg-[rgba(18,18,18,0.2)]">
+                <span className="flex size-[28px] items-center justify-center rounded-full bg-[#A3B1FF]">
+                  <Check
+                    className="size-[18px] text-[#FAFAFA]"
+                    strokeWidth={2.5}
+                  />
+                </span>
+              </span>
+            </span>
+          }
+          title={
+            <span className="text-[#A3B1FF]">
+              카드 실적이{' '}
+              {registeredCard.isPerformanceConfirmed ? '수정' : '등록'}
+              되었어요
+            </span>
+          }
+          description="더 정확하게 카드를 추천받을 수 있어요"
+          hasArrow={false}
+          // 카드 전체가 보이도록 아이콘 영역을 카드 비율(가로형)로 넓힙니다.
+          iconClassName="w-[95px] rounded-[4px]"
+          onClick={closeRegisteredToast}
+          onClose={closeRegisteredToast}
+        />
+      )}
+
       <BottomNav />
+
+      {isMoreSheetOpen && (
+        <CardMoreSheet
+          card={activeCard}
+          onClose={() => setIsMoreSheetOpen(false)}
+          onEditPerformance={() => {
+            setIsMoreSheetOpen(false);
+            setUsageInput('sheet');
+          }}
+          // TODO: 카드 삭제 API 연동 (삭제 확인 단계가 정해지면 함께 연결합니다.)
+          onDelete={() => {}}
+        />
+      )}
+
+      {usageInput === 'sheet' && (
+        <CardUsageSheet
+          card={activeCard}
+          submitLabel="저장하기"
+          onClose={() => setUsageInput(null)}
+          onDirectInput={() => setUsageInput('amount')}
+          amounts={usageAmounts[activeCard.id]}
+          // TODO: API 연동 시 입력한 사용 현황을 저장하고 혜택 현황을 다시 받아옵니다.
+          onSubmit={() => {
+            setCards((prev) =>
+              prev.map((card) =>
+                card.id === activeCard.id
+                  ? { ...card, isPerformanceConfirmed: true }
+                  : card,
+              ),
+            );
+            setRegisteredCard(activeCard);
+          }}
+        />
+      )}
+      {usageInput === 'amount' && (
+        <CardUsageAmountScreen
+          card={activeCard}
+          initialAmounts={usageAmounts[activeCard.id]}
+          onBack={() => setUsageInput('sheet')}
+          // 입력을 마치면 바텀시트로 돌아가 입력한 금액을 보여줍니다.
+          onSubmit={(amounts) => {
+            setUsageAmounts((prev) => ({ ...prev, [activeCard.id]: amounts }));
+            setUsageInput('sheet');
+          }}
+        />
+      )}
     </div>
   );
 }

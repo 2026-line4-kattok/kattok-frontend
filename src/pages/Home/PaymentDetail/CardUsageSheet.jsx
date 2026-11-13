@@ -66,6 +66,8 @@ export default function CardUsageSheet({
   onDirectInput,
   // 직접 입력한 금액 (질문 name → 금액). 있으면 선택지 대신 텍스트 필드로 보여줍니다.
   amounts,
+  // 하단 버튼 문구 (카드 페이지에서는 '저장하기')
+  submitLabel = '카드 추천 받기',
 }) {
   const [isClosing, setIsClosing] = useState(false);
   // 시트가 다 내려간 뒤 실행할 동작 (직접 입력 화면으로 넘어갈지)
@@ -205,20 +207,26 @@ export default function CardUsageSheet({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={openDirectInput}
-          className="mx-auto mt-[32px] font-['Pretendard'] text-[14px] leading-[140%] font-[500] text-[#6E6E6E] underline underline-offset-2"
-        >
-          금액을 알면 직접 입력할 수 있어요
-        </button>
+        {/* 금액을 다 입력해 텍스트 필드로 보여줄 때는 직접 입력 버튼을 숨깁니다. */}
+        {!amounts && (
+          <button
+            type="button"
+            onClick={openDirectInput}
+            className="mx-auto mt-[32px] font-['Pretendard'] text-[14px] leading-[140%] font-[500] text-[#6E6E6E] underline underline-offset-2"
+          >
+            금액을 알면 직접 입력할 수 있어요
+          </button>
+        )}
 
         <button
           type="button"
           onClick={handleSubmit}
-          className="mt-[12px] flex h-[54px] w-full shrink-0 items-center justify-center rounded-[27px] bg-[#121212] font-['Pretendard'] text-[20px] leading-[120%] font-[600] text-[#FAFAFA]"
+          className={cn(
+            amounts ? 'mt-[32px]' : 'mt-[12px]',
+            "flex h-[54px] w-full shrink-0 items-center justify-center rounded-[27px] bg-[#121212] font-['Pretendard'] text-[20px] leading-[120%] font-[600] text-[#FAFAFA]",
+          )}
         >
-          카드 추천 받기
+          {submitLabel}
         </button>
       </div>
     </div>
