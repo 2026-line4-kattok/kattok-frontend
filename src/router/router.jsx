@@ -1,4 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom';
+import CardPage from '@/pages/Card/CardPage';
 import HomePage from '@/pages/Home/HomePage';
 import NotFoundPage from '@/pages/NotFound/NotFoundPage';
 import Login from '@/pages/Onboarding/Login';
@@ -14,6 +15,7 @@ export const router = createBrowserRouter([
   { path: '/', element: <HomePage /> },
   { path: '/payment/:paymentId', element: <PaymentDetailPage /> },
   { path: '/payment/:paymentId/card', element: <CardChangePage /> },
+  { path: '/card', element: <CardPage /> },
   { path: '/search', element: <SearchPage /> },
   { path: '/payment/amount', element: <AmountInputPage /> },
   { path: '*', element: <NotFoundPage /> },

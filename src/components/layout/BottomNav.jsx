@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/utils/cn';
 import { HomeIcon, PayIcon, UserIcon, SearchIcon } from '@/assets/icons/icons';
@@ -12,6 +13,7 @@ const TABS = [
 export default function BottomNav() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const isCardTab = pathname === '/card';
 
   return (
     <div className="fixed inset-x-0 bottom-0 mx-auto flex w-full max-w-[402px] items-center justify-between px-4 pb-[max(28px,env(safe-area-inset-bottom))] max-phone-s:px-3 max-phone-xs:px-2">
@@ -45,13 +47,22 @@ export default function BottomNav() {
         })}
       </nav>
 
+      {/* 카드 탭에서는 카드 추가(온보딩의 카드사 선택 단계), 그 외에는 결제 장소 검색 */}
       <button
         type="button"
-        aria-label="결제 장소 검색"
-        onClick={() => navigate('/search')}
+        aria-label={isCardTab ? '카드 추가' : '결제 장소 검색'}
+        onClick={() =>
+          isCardTab
+            ? navigate('/signup', { state: { initialStep: 2 } })
+            : navigate('/search')
+        }
         className="flex w-[72px] shrink-0 flex-col items-start gap-[10px] rounded-[32px] bg-[#8C9EFF] p-6 backdrop-blur-[0px] max-phone-s:w-[64px] max-phone-s:px-5 max-phone-xs:w-[56px] max-phone-xs:px-4"
       >
-        <SearchIcon className="size-[24px] text-[#FAFAFA]" />
+        {isCardTab ? (
+          <Plus className="size-[24px] text-[#FAFAFA]" strokeWidth={2} />
+        ) : (
+          <SearchIcon className="size-[24px] text-[#FAFAFA]" />
+        )}
       </button>
     </div>
   );
