@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/utils/cn';
 
 const SHEET_DURATION = '300ms';
@@ -39,9 +39,37 @@ function OptionGroup({ name, question, options, value, onChange }) {
   );
 }
 
+// 금액을 직접 입력한 뒤에는 선택지 대신 입력한 금액을 보여줍니다.
+function AmountField({ question, label, amount }) {
+  return (
+    <div className="flex flex-col gap-[12px]">
+      <p className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#6E6E6E]">
+        {question}
+      </p>
+      <div className="flex h-[48px] items-center justify-between gap-[12px] rounded-[8px] bg-[#F1F1F1] px-[16px]">
+        <span className="shrink-0 font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]">
+          {label}
+        </span>
+        <span className="truncate font-['Pretendard'] text-[20px] leading-[120%] font-[600] text-[#121212]">
+          {(amount ?? 0).toLocaleString('ko-KR')}원
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // 조건부 카드의 지난달 실적·이번 달 할인 사용 현황을 묻는 바텀시트
-export default function CardUsageSheet({ card, onClose, onSubmit }) {
+export default function CardUsageSheet({
+  card,
+  onClose,
+  onSubmit,
+  onDirectInput,
+  // 직접 입력한 금액 (질문 name → 금액). 있으면 선택지 대신 텍스트 필드로 보여줍니다.
+  amounts,
+}) {
   const [isClosing, setIsClosing] = useState(false);
+  // 시트가 다 내려간 뒤 실행할 동작 (직접 입력 화면으로 넘어갈지)
+  const afterCloseRef = useRef(onClose);
   const categories = card.benefitCategories ?? [];
   const requirement = card.performanceRequirement;
 
@@ -51,6 +79,7 @@ export default function CardUsageSheet({ card, onClose, onSubmit }) {
           {
             name: 'performance',
             question: '지난달 이 카드로 얼마나 쓰셨나요?',
+            amountLabel: '결제 금액',
             options: [
               { value: 'under', label: `${formatManWon(requirement)} 미만` },
               { value: 'over', label: `${formatManWon(requirement)} 이상` },
@@ -62,6 +91,7 @@ export default function CardUsageSheet({ card, onClose, onSubmit }) {
     ...categories.map((category) => ({
       name: `remaining-${category}`,
       question: `이번 달 ${category} 할인 얼마나 남았나요?`,
+      amountLabel: '잔여 한도',
       options: [
         { value: 'used', label: '다 썼어요' },
         { value: 'unused', label: '안 썼어요' },
@@ -87,8 +117,13 @@ export default function CardUsageSheet({ card, onClose, onSubmit }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const openDirectInput = () => {
+    afterCloseRef.current = onDirectInput;
+    close();
+  };
+
   const handleSubmit = () => {
-    onSubmit?.(answers);
+    onSubmit?.(amounts ?? answers);
     close();
   };
 
@@ -107,7 +142,8 @@ export default function CardUsageSheet({ card, onClose, onSubmit }) {
         aria-modal="true"
         aria-labelledby="card-usage-sheet-title"
         onAnimationEnd={(e) => {
-          if (isClosing && e.target === e.currentTarget) onClose();
+          if (isClosing && e.target === e.currentTarget)
+            (afterCloseRef.current ?? onClose)();
         }}
         className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[90dvh] w-[calc(100%-8px)] max-w-[394px] [scrollbar-width:none] flex-col overflow-y-auto rounded-t-[24px] bg-[#FAFAFA] px-[20px] pt-[12px] pb-[max(24px,env(safe-area-inset-bottom))] max-phone-xs:px-3 [&::-webkit-scrollbar]:hidden"
         style={{
@@ -146,22 +182,32 @@ export default function CardUsageSheet({ card, onClose, onSubmit }) {
         </div>
 
         <div className="mt-[32px] flex flex-col gap-[24px]">
-          {questions.map(({ name, question, options }) => (
-            <OptionGroup
-              key={name}
-              name={name}
-              question={question}
-              options={options}
-              value={answers[name]}
-              onChange={(value) =>
-                setAnswers((prev) => ({ ...prev, [name]: value }))
-              }
-            />
-          ))}
+          {questions.map(({ name, question, amountLabel, options }) =>
+            amounts ? (
+              <AmountField
+                key={name}
+                question={question}
+                label={amountLabel}
+                amount={amounts[name]}
+              />
+            ) : (
+              <OptionGroup
+                key={name}
+                name={name}
+                question={question}
+                options={options}
+                value={answers[name]}
+                onChange={(value) =>
+                  setAnswers((prev) => ({ ...prev, [name]: value }))
+                }
+              />
+            ),
+          )}
         </div>
 
         <button
           type="button"
+          onClick={openDirectInput}
           className="mx-auto mt-[32px] font-['Pretendard'] text-[14px] leading-[140%] font-[500] text-[#6E6E6E] underline underline-offset-2"
         >
           금액을 알면 직접 입력할 수 있어요

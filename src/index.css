@@ -9,6 +9,16 @@
 
   --animate-slide-in: slide-in 0.3s ease-out;
   --animate-caret-blink: caret-blink 1s step-end infinite;
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+
+  @keyframes shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -100% 0;
+    }
+  }
 
   @keyframes caret-blink {
     50% {
