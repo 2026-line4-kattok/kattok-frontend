@@ -7,37 +7,6 @@ import {
   hasBenefit,
 } from '@/pages/Home/PaymentDetail/paymentDetailData';
 
-<<<<<<< HEAD
-const QUICK_ADDS = [
-  { label: '+ 1천', value: 1_000 },
-  { label: '+ 5천', value: 5_000 },
-  { label: '+ 1만', value: 10_000 },
-  { label: '+ 5만', value: 50_000 },
-];
-
-const DIGIT_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
-
-// 1억원 미만까지만 입력받습니다.
-const MAX_AMOUNT = 99_999_999;
-
-const clamp = (value) => Math.min(value, MAX_AMOUNT);
-
-function Key({ children, onClick, label, disabled }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      disabled={disabled}
-      className="gap-12px flex h-[70px] items-center justify-center font-['Pretendard'] text-[32px] leading-[120%] font-[500] text-[#121212] active:bg-[#E6E6E6] disabled:active:bg-transparent"
-    >
-      {children}
-    </button>
-  );
-}
-
-=======
->>>>>>> 35aeab8e75b5c6b2c384baa2ad197820ed27f1cd
 export default function AmountInputPage() {
   const navigate = useNavigate();
   const { state } = useLocation();
