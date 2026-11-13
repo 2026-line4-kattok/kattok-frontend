@@ -29,7 +29,7 @@ function OtherCardSkeleton() {
 }
 
 // 혜택 금액 확인 화면이 로딩 중일 때 보여주는 본문 (헤더·하단 버튼은 그대로 둡니다)
-export default function PaymentDetailSkeleton() {
+export default function PaymentDetailSkeleton({ otherCardsTitle }) {
   return (
     <div
       role="status"
@@ -53,7 +53,7 @@ export default function PaymentDetailSkeleton() {
 
       <section className="flex w-full flex-col gap-[16px]">
         <h2 className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#6E6E6E]">
-          내 카드 비교
+          {otherCardsTitle}
         </h2>
         <ul className="flex w-full flex-col gap-[20px]">
           <OtherCardSkeleton />

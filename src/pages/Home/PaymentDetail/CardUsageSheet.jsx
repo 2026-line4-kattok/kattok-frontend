@@ -92,7 +92,7 @@ export default function CardUsageSheet({
       : []),
     ...categories.map((category) => ({
       name: `remaining-${category}`,
-      question: `이번 달 ${category} 할인 얼마나 남았나요?`,
+      question: `이번 달 ${category} 할인 얼마나 받았나요?`,
       amountLabel: '잔여 한도',
       options: [
         { value: 'used', label: '다 썼어요' },
@@ -206,8 +206,6 @@ export default function CardUsageSheet({
             ),
           )}
         </div>
-
-        {/* 금액을 다 입력해 텍스트 필드로 보여줄 때는 직접 입력 버튼을 숨깁니다. */}
         {!amounts && (
           <button
             type="button"
