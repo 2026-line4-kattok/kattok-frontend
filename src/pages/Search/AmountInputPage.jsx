@@ -28,7 +28,7 @@ function Key({ children, onClick, label, disabled }) {
       onClick={onClick}
       aria-label={label}
       disabled={disabled}
-      className="flex h-[70px] gap-12px items-center justify-center font-['Pretendard'] text-[32px] leading-[120%] font-[500] text-[#121212] active:bg-[#E6E6E6] disabled:active:bg-transparent"
+      className="gap-12px flex h-[70px] items-center justify-center font-['Pretendard'] text-[32px] leading-[120%] font-[500] text-[#121212] active:bg-[#E6E6E6] disabled:active:bg-transparent"
     >
       {children}
     </button>

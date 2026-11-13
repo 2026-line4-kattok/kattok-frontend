@@ -91,11 +91,7 @@ const CARD_BENEFITS = [
   },
 ];
 
-const calculateCard = (
-  { rates, ...card },
-  category,
-  amount,
-) => {
+const calculateCard = ({ rates, ...card }, category, amount) => {
   const rate = rates[category] ?? 0;
   const fullDiscount = Math.floor((amount * rate) / 100);
   const discount =

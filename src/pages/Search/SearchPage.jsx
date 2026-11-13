@@ -101,7 +101,7 @@ export default function SearchPage() {
       <main className="mx-auto flex w-full max-w-[402px] flex-col px-[18px] pt-[86px] pb-[max(28px,env(safe-area-inset-bottom))] max-phone-xs:px-3">
         <div className="flex items-center gap-[10px]">
           <label className="flex h-[48px] min-w-0 flex-1 items-center gap-[4px] rounded-[8px] bg-[#EBEBEB] px-[8px]">
-            <SearchIcon className="size-[20px] m-[8px] shrink-0 text-[#B0B0B0]" />
+            <SearchIcon className="m-[8px] size-[20px] shrink-0 text-[#B0B0B0]" />
             <input
               type="search"
               value={keyword}
@@ -154,7 +154,7 @@ export default function SearchPage() {
           {places.length > 0 ? (
             <ul className="mt-[24px] flex flex-col">
               {places.map(({ id, place, category, date, cardImage }) => (
-                <li key={id} className='py-[8px]'>
+                <li key={id} className="py-[8px]">
                   <button
                     type="button"
                     onClick={() => goToAmount({ category, place })}

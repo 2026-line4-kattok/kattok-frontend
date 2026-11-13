@@ -8,6 +8,7 @@ import CardChangePage from '@/pages/Home/PaymentDetail/CardChangePage';
 import PaymentDetailPage from '@/pages/Home/PaymentDetail/PaymentDetailPage';
 import AmountInputPage from '@/pages/Search/AmountInputPage';
 import SearchPage from '@/pages/Search/SearchPage';
+import MyPage from '@/pages/Mypage';
 
 export const router = createBrowserRouter([
   { path: '/', element: <HomePage /> },
@@ -19,4 +20,5 @@ export const router = createBrowserRouter([
   { path: '/onboarding', element: <Onboarding /> },
   { path: '/login', element: <Login /> },
   { path: '/signup', element: <Signup /> },
+  { path: '/mypage', element: <MyPage /> },
 ]);
