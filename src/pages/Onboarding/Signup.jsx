@@ -13,7 +13,7 @@ import bc from '@/assets/onboarding/bc카드.png';
 import ss from '@/assets/onboarding/삼성카드.png';
 import hd from '@/assets/onboarding/현대.png';
 import ts from '@/assets/onboarding/토스.png';
-import search from '@/assets/onboarding/search.svg';
+import search from '@/assets/onboarding/Search.svg';
 import card1 from '@/assets/onboarding/card/eco-plan.png';
 import card2 from '@/assets/onboarding/card/bbig.png';
 import card3 from '@/assets/onboarding/card/simple-plan.png';
