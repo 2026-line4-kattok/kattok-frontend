@@ -191,10 +191,15 @@ function EditPayment({ payment, onClose, onSave, onDelete }) {
   );
 }
 
-export function DeletePaymentDialog({ onClose, onConfirm }) {
+// description을 넘기면 다른 삭제 확인(예: 카드 삭제)에도 재사용할 수 있습니다.
+export function DeletePaymentDialog({
+  onClose,
+  onConfirm,
+  description = '삭제하면 결제 정보를 다시 되돌릴 수 없어요',
+}) {
   return (
     <Modal title="정말 삭제할까요?" onClose={onClose}>
-      <p>삭제하면 결제 정보를 다시 되돌릴 수 없어요</p>
+      <p>{description}</p>
       <div className="mt-6 flex h-12 shrink-0 [&>button]:flex [&>button]:h-12 [&>button]:flex-1 [&>button]:items-center [&>button]:justify-center">
         <button
           type="button"
@@ -202,7 +207,7 @@ export function DeletePaymentDialog({ onClose, onConfirm }) {
           aria-label="삭제 취소"
           onClick={onClose}
         >
-          <X size={16} />
+          <X size={20} />
         </button>
         <button
           type="button"
@@ -210,7 +215,7 @@ export function DeletePaymentDialog({ onClose, onConfirm }) {
           aria-label="삭제 확인"
           onClick={onConfirm}
         >
-          <Check size={16} />
+          <Check size={20} />
         </button>
       </div>
     </Modal>
@@ -274,7 +279,8 @@ function CardImage({
   );
 }
 
-function Modal({ title, children, onClose, sheet = false }) {
+// 카드 페이지의 마지막 카드 삭제 안내 모달에서도 재사용합니다.
+export function Modal({ title, children, onClose, sheet = false }) {
   const ref = useRef(null);
   const titleId = useId();
   useEffect(() => {
@@ -332,7 +338,7 @@ function Modal({ title, children, onClose, sheet = false }) {
         className={
           sheet
             ? 'absolute bottom-0 left-1/2 h-[673px] w-[calc(100%-8px)] max-w-[394px] -translate-x-1/2 [scrollbar-width:none] overflow-y-auto rounded-t-[28px] bg-[#FAFAFA] px-[18px] pt-2 outline-none [&::-webkit-scrollbar]:hidden'
-            : 'flex w-[349px] max-w-[calc(100%-32px)] flex-col overflow-hidden rounded-[8px] bg-[#FAFAFA] shadow-[0_0_20px_rgba(18,18,18,0.12)] outline-none [&>h2]:px-6 [&>h2]:pt-6 [&>h2]:text-[20px] [&>h2]:leading-[1.2] [&>h2]:font-semibold [&>p]:px-6 [&>p]:pt-3 [&>p]:text-[14px] [&>p]:leading-[1.4] [&>p]:text-[#8E8E8E]'
+            : 'flex w-[349px] max-w-[calc(100%-32px)] flex-col overflow-hidden rounded-[8px] bg-[#FAFAFA] shadow-[0_0_20px_rgba(18,18,18,0.12)] outline-none [&>h2]:px-6 [&>h2]:pt-6 [&>h2]:text-[24px] [&>h2]:leading-[1.2] [&>h2]:font-[600] [&>p]:px-[24px] [&>p]:pt-[12px] [&>p]:text-[16px] [&>p]:leading-[1.4] [&>p]:text-[#8E8E8E]'
         }
         onClick={(event) => event.stopPropagation()}
       >

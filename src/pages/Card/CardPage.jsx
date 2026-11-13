@@ -1,6 +1,8 @@
-import { Check, Ellipsis, Plus } from 'lucide-react';
+import { Check, Ellipsis, Plus, X } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Toast from '@/components/common/Toast';
+import { DeletePaymentDialog, Modal } from '@/pages/Mypage/MypageRecord';
 import BottomNav from '@/components/layout/BottomNav';
 import { cn } from '@/utils/cn';
 import CardUsageAmountScreen from '@/pages/Home/PaymentDetail/CardUsageAmountScreen';
@@ -112,7 +114,92 @@ function BenefitItem({ benefit, onEdit, onEnterLimit }) {
   );
 }
 
+// 카드 토스트 종류별 문구·아이콘
+const CARD_TOAST = {
+  registered: {
+    title: '카드 실적이 등록되었어요',
+    description: '더 정확하게 카드를 추천받을 수 있어요',
+  },
+  edited: {
+    title: '카드 실적이 수정되었어요',
+    description: '더 정확하게 카드를 추천받을 수 있어요',
+  },
+  deleted: {
+    title: (card) => `${card.name} 삭제됨`,
+    description: '결제 내역은 My에서 확인할 수 있어요.',
+    isNegative: true,
+  },
+};
+
+// 카드 이미지 위에 체크(완료) 또는 X(삭제) 아이콘을 얹은 토스트
+function CardToast({ toast, onClose }) {
+  const { card, type } = toast;
+  const { title, description, isNegative } = CARD_TOAST[type];
+  const StatusIcon = isNegative ? X : Check;
+
+  return (
+    <Toast
+      icon={
+        <span className="relative size-full">
+          <img
+            src={card.image}
+            alt=""
+            className={cn(
+              'absolute top-1/2 left-1/2 max-w-none -translate-1/2 object-cover',
+              card.isHorizontal
+                ? 'h-[60px] w-[95px]'
+                : 'h-[95px] w-[60px] -rotate-90',
+            )}
+          />
+          <span className="absolute inset-0 flex items-center justify-center bg-[rgba(18,18,18,0.2)]">
+            <span
+              className={cn(
+                'flex size-[28px] items-center justify-center rounded-full',
+                isNegative ? 'bg-[#E46A5E]' : 'bg-[#A3B1FF]',
+              )}
+            >
+              <StatusIcon
+                className="size-[18px] text-[#FAFAFA]"
+                strokeWidth={2.5}
+              />
+            </span>
+          </span>
+        </span>
+      }
+      title={
+        <span className={isNegative ? 'text-[#EE695D]' : 'text-[#A3B1FF]'}>
+          {typeof title === 'function' ? title(card) : title}
+        </span>
+      }
+      description={description}
+      hasArrow={false}
+      // 카드 전체가 보이도록 아이콘 영역을 카드 비율(가로형)로 넓힙니다.
+      iconClassName="w-[95px] rounded-[4px]"
+      onClick={onClose}
+      onClose={onClose}
+    />
+  );
+}
+
+// 마지막으로 남은 카드를 삭제하려 할 때 띄우는 안내 모달
+function LastCardDialog({ onClose, onAddCard }) {
+  return (
+    <Modal title="마지막 카드는 삭제할 수 없어요" onClose={onClose}>
+      <p>다른 카드를 먼저 등록한 뒤 삭제해 주세요.</p>
+      <div className="mt-6 flex min-h-12 [&>button]:flex [&>button]:min-h-12 [&>button]:flex-1 [&>button]:items-center [&>button]:justify-center [&>button]:text-[16px] [&>button]:font-normal [&>button]:text-[#3B426B]">
+        <button type="button" onClick={onClose}>
+          취소
+        </button>
+        <button type="button" className="bg-[#A3B1FF]" onClick={onAddCard}>
+          카드 추가하기
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 export default function CardPage() {
+  const navigate = useNavigate();
   const scrollRef = useRef(null);
   // TODO: API 연동 시 서버 데이터로 교체합니다. (실적 등록 결과를 화면에 반영하기 위해 상태로 둡니다.)
   const [cards, setCards] = useState(MY_CARDS);
@@ -124,12 +211,14 @@ export default function CardPage() {
   );
   const activeCard = cards[activeIndex];
   const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
-  // 실적 저장 완료 토스트에 보여줄 카드 (저장 전 isPerformanceConfirmed가 false면 처음 등록, true면 수정)
-  const [registeredCard, setRegisteredCard] = useState(null);
-  const closeRegisteredToast = useCallback(
-    () => setRegisteredCard(null),
-    [setRegisteredCard],
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const closeDeleteDialog = useCallback(
+    () => setIsDeleteDialogOpen(false),
+    [setIsDeleteDialogOpen],
   );
+  // 카드 토스트: { type: 'registered' | 'edited' | 'deleted', card }
+  const [toast, setToast] = useState(null);
+  const closeToast = useCallback(() => setToast(null), [setToast]);
   // 카드 사용 현황 입력: null | 'sheet'(바텀시트) | 'amount'(금액 직접 입력 화면)
   const [usageInput, setUsageInput] = useState(null);
   // 카드별로 직접 입력한 금액
@@ -144,6 +233,13 @@ export default function CardPage() {
       left: index * (CARD_WIDTH + CARD_GAP),
       behavior: 'smooth',
     });
+  };
+
+  // TODO: API 연동 시 카드 삭제를 서버에 반영합니다.
+  const handleDeleteCard = () => {
+    setCards((prev) => prev.filter((card) => card.id !== activeCard.id));
+    setIsDeleteDialogOpen(false);
+    setToast({ type: 'deleted', card: activeCard });
   };
 
   return (
@@ -246,58 +342,44 @@ export default function CardPage() {
         </section>
       </main>
 
-      {registeredCard && (
-        <Toast
-          icon={
-            <span className="relative size-full">
-              <img
-                src={registeredCard.image}
-                alt=""
-                className={cn(
-                  'absolute top-1/2 left-1/2 max-w-none -translate-1/2 object-cover',
-                  registeredCard.isHorizontal
-                    ? 'h-[60px] w-[95px]'
-                    : 'h-[95px] w-[60px] -rotate-90',
-                )}
-              />
-              <span className="absolute inset-0 flex items-center justify-center bg-[rgba(18,18,18,0.2)]">
-                <span className="flex size-[28px] items-center justify-center rounded-full bg-[#A3B1FF]">
-                  <Check
-                    className="size-[18px] text-[#FAFAFA]"
-                    strokeWidth={2.5}
-                  />
-                </span>
-              </span>
-            </span>
-          }
-          title={
-            <span className="text-[#A3B1FF]">
-              카드 실적이{' '}
-              {registeredCard.isPerformanceConfirmed ? '수정' : '등록'}
-              되었어요
-            </span>
-          }
-          description="더 정확하게 카드를 추천받을 수 있어요"
-          hasArrow={false}
-          // 카드 전체가 보이도록 아이콘 영역을 카드 비율(가로형)로 넓힙니다.
-          iconClassName="w-[95px] rounded-[4px]"
-          onClick={closeRegisteredToast}
-          onClose={closeRegisteredToast}
-        />
-      )}
+      {toast && <CardToast toast={toast} onClose={closeToast} />}
 
       <BottomNav />
 
       {isMoreSheetOpen && (
         <CardMoreSheet
           card={activeCard}
+          isLastCard={cards.length === 1}
           onClose={() => setIsMoreSheetOpen(false)}
           onEditPerformance={() => {
             setIsMoreSheetOpen(false);
             setUsageInput('sheet');
           }}
-          // TODO: 카드 삭제 API 연동 (삭제 확인 단계가 정해지면 함께 연결합니다.)
-          onDelete={() => {}}
+          onDelete={() => {
+            setIsMoreSheetOpen(false);
+            setIsDeleteDialogOpen(true);
+          }}
+        />
+      )}
+
+      {isDeleteDialogOpen && cards.length === 1 && (
+        <LastCardDialog
+          onClose={closeDeleteDialog}
+          // 하단 + 버튼과 같은 온보딩의 카드사 선택 단계로 이동합니다.
+          onAddCard={() => navigate('/signup', { state: { initialStep: 2 } })}
+        />
+      )}
+      {isDeleteDialogOpen && cards.length > 1 && (
+        <DeletePaymentDialog
+          description={
+            <>
+              삭제하면 이 카드는 앞으로 추천에서 빠져요.
+              <br />
+              지난 추천과 결제 기록은 그대로 남아요.
+            </>
+          }
+          onClose={closeDeleteDialog}
+          onConfirm={handleDeleteCard}
         />
       )}
 
@@ -317,7 +399,11 @@ export default function CardPage() {
                   : card,
               ),
             );
-            setRegisteredCard(activeCard);
+            setToast({
+              // 저장 전에 실적이 확인되지 않은 카드면 처음 등록, 이미 확인된 카드면 수정
+              type: activeCard.isPerformanceConfirmed ? 'edited' : 'registered',
+              card: activeCard,
+            });
           }}
         />
       )}

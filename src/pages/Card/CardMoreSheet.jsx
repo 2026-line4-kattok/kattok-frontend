@@ -28,9 +28,11 @@ function MenuItem({
         <span className="font-['Pretendard'] text-[18px] leading-[120%] font-[600] text-[#3B426B]">
           {title}
         </span>
-        <span className="font-['Pretendard'] text-[14px] leading-[140%] font-[400] break-keep text-[#8E8E8E]">
-          {description}
-        </span>
+        {description && (
+          <span className="font-['Pretendard'] text-[14px] leading-[140%] font-[400] break-keep text-[#8E8E8E]">
+            {description}
+          </span>
+        )}
       </span>
       {icon}
     </button>
@@ -40,6 +42,8 @@ function MenuItem({
 // 카드 페이지 더보기(···) 바텀시트: 전월 실적 입력/수정, 카드 삭제
 export default function CardMoreSheet({
   card,
+  // 마지막으로 남은 카드면 메뉴 설명을 숨깁니다. (삭제할 수 없는 카드)
+  isLastCard,
   onClose,
   onEditPerformance,
   onDelete,
@@ -111,7 +115,9 @@ export default function CardMoreSheet({
         <div className="mt-[20px] flex flex-col gap-px bg-[#E3E3E3] shadow-[0_0_12px_2px_rgba(0,0,0,0.02)]">
           <MenuItem
             title="전월 실적 입력 및 수정"
-            description="이번 달 혜택을 받을 수 있는지 판단할 때 써요"
+            description={
+              !isLastCard && '이번 달 혜택을 받을 수 있는지 판단할 때 써요'
+            }
             icon={<EditIcon className="size-[20px] shrink-0" />}
             isSelected={selectedMenu === 'performance'}
             onClick={() => {
@@ -122,7 +128,9 @@ export default function CardMoreSheet({
           />
           <MenuItem
             title="카드 삭제"
-            description={`이번 달 ${card.name} 혜택을 받을 수 없어요`}
+            description={
+              !isLastCard && `이번 달 ${card.name} 혜택을 받을 수 없어요`
+            }
             icon={<TrashIcon className="size-[20px] shrink-0" />}
             isSelected={selectedMenu === 'delete'}
             onClick={() => {
