@@ -30,7 +30,8 @@ export default function AmountInputPage() {
   return (
     <div className="flex h-dvh flex-col bg-[#F1F1F1]">
       <PageHeader
-        title={title}
+        // 업종으로 고르기에서 들어오면 장소 없이 업종만 있습니다.
+        title={place ? title : '업종으로 고르기'}
         onBack={() => navigate(-1)}
         onClose={() => navigate('/')}
       />
