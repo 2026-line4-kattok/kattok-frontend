@@ -66,6 +66,8 @@ export default function CardUsageSheet({
   onDirectInput,
   // 직접 입력한 금액 (질문 name → 금액). 있으면 선택지 대신 텍스트 필드로 보여줍니다.
   amounts,
+  // 하단 버튼 문구 (카드 페이지에서는 '저장하기')
+  submitLabel = '카드 추천 받기',
 }) {
   const [isClosing, setIsClosing] = useState(false);
   // 시트가 다 내려간 뒤 실행할 동작 (직접 입력 화면으로 넘어갈지)
@@ -204,8 +206,6 @@ export default function CardUsageSheet({
             ),
           )}
         </div>
-
-        {/* 이미 금액을 직접 입력한 상태에서는 직접 입력 버튼을 보여주지 않습니다. */}
         {!amounts && (
           <button
             type="button"
@@ -224,7 +224,7 @@ export default function CardUsageSheet({
             "flex h-[54px] w-full shrink-0 items-center justify-center rounded-[27px] bg-[#121212] font-['Pretendard'] text-[20px] leading-[120%] font-[600] text-[#FAFAFA]",
           )}
         >
-          카드 추천 받기
+          {submitLabel}
         </button>
       </div>
     </div>
