@@ -79,9 +79,104 @@ export const toOwnedCardView = (ownedCard) => {
     representativeBenefit: ownedCard.representativeBenefit,
     statusChip: ownedCard.statusChip,
     createdAt: ownedCard.createdAt,
-    // TODO: 3-2 카드 상세 API 연동 시 혜택별 사용 금액·한도와 사용 현황 질문 데이터를 채웁니다.
+    // 혜택·한도·실적 기준 금액은 3-2 카드 상세 응답(toOwnedCardDetailView)으로 채웁니다.
     benefits: [],
     benefitCategories: [],
     performanceRequirement: undefined,
+  };
+};
+
+// ---------------------------------------------------------------------------
+// 3-2. 보유 카드 상세
+// ---------------------------------------------------------------------------
+
+// 숫자로 쓸 수 있는 첫 번째 값을 고릅니다. (null·undefined는 '확인 안 됨'으로 남깁니다.)
+const pickNumber = (...values) =>
+  values.find((value) => typeof value === 'number' && Number.isFinite(value));
+
+// 한도 항목 한 건 → { used, limit, unit }
+// 한도 항목 형식은 3-3 계약을 따릅니다. 필드 이름이 확정되면 여기만 고치면 됩니다.
+const toCapView = (cap) => {
+  const amountLimit = pickNumber(
+    cap.limitAmount,
+    cap.amountLimit,
+    cap.maxAmount,
+  );
+  const countLimit = pickNumber(cap.limitCount, cap.countLimit, cap.capCount);
+
+  if (amountLimit !== undefined) {
+    const remaining = pickNumber(cap.remainingAmount);
+    return {
+      unit: 'AMOUNT',
+      limit: amountLimit,
+      used: pickNumber(
+        cap.usedAmount,
+        cap.amountUsed,
+        remaining !== undefined ? amountLimit - remaining : undefined,
+      ),
+    };
+  }
+  if (countLimit !== undefined) {
+    const remaining = pickNumber(cap.remainingCount);
+    return {
+      unit: 'COUNT',
+      limit: countLimit,
+      used: pickNumber(
+        cap.usedCount,
+        cap.countUsed,
+        remaining !== undefined ? countLimit - remaining : undefined,
+      ),
+    };
+  }
+  return null;
+};
+
+// performance.options에서 혜택이 시작되는 최소 실적 금액 (사용 현황 바텀시트 질문에 사용)
+const getMinRequirement = (options = []) => {
+  const amounts = options
+    .map((option) => option.minAmount)
+    .filter((amount) => typeof amount === 'number' && amount > 0);
+  return amounts.length > 0 ? Math.min(...amounts) : undefined;
+};
+
+// GET /api/v1/owned-cards/{id} 응답 → 카드 상세 화면 모델
+export const toOwnedCardDetailView = (detail) => {
+  const {
+    product,
+    performance,
+    benefits = [],
+    caps = [],
+    savedBenefit,
+  } = detail;
+  const capsById = new Map(caps.map((cap) => [cap.capGroupId ?? cap.id, cap]));
+  // 실적 미확인(SINGLE·MULTIPLE + UNKNOWN)이면 서버가 최소 혜택 구간을 가정한 한도라 '추정'으로 표시합니다.
+  const isAssumedTier =
+    ['SINGLE', 'MULTIPLE'].includes(product.performanceType) &&
+    performance?.status === 'UNKNOWN';
+
+  return {
+    id: detail.id,
+    product,
+    performanceStatus: performance?.status,
+    performanceTier: performance?.tier ?? null,
+    performanceOptions: performance?.options ?? [],
+    baseMonth: performance?.baseMonth,
+    performanceRequirement: getMinRequirement(performance?.options),
+    savedBenefit: savedBenefit ?? { amount: 0, paymentCount: 0 },
+    benefits: benefits.map((benefit) => {
+      const cap =
+        benefit.capGroupId != null && capsById.has(benefit.capGroupId)
+          ? toCapView(capsById.get(benefit.capGroupId))
+          : null;
+      return {
+        id: benefit.ruleId,
+        name: benefit.description,
+        usedInRecommendation: benefit.usedInRecommendation,
+        cap,
+        // 확인하지 않은 사용량은 서버가 채우지 않으므로 '한도 입력' 상태로 보여줍니다.
+        isLimitEntered: cap ? cap.used !== undefined : true,
+        isEstimated: Boolean(cap) && isAssumedTier,
+      };
+    }),
   };
 };

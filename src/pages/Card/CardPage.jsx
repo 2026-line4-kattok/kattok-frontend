@@ -10,6 +10,7 @@ import CardUsageAmountScreen from '@/pages/Home/PaymentDetail/CardUsageAmountScr
 import CardUsageSheet from '@/pages/Home/PaymentDetail/CardUsageSheet';
 import CardMoreSheet from './CardMoreSheet';
 import useOwnedCards, { OWNED_CARDS_QUERY_KEY } from '@/hooks/useOwnedCards';
+import useOwnedCardDetail from '@/hooks/useOwnedCardDetail';
 import { EditIcon } from '@/assets/icons/icons';
 
 // 캐러셀 카드 크기 (px) — 스크롤 위치로 현재 카드를 계산할 때 사용합니다.
@@ -48,68 +49,94 @@ function CardImage({ card }) {
   );
 }
 
-// 혜택 한 줄 (사용 금액 / 한도 + 진행 바)
+// 한도 단위별 표기 (금액 한도 / 횟수 한도)
+const formatCap = (value, unit) =>
+  unit === 'COUNT' ? `${value.toLocaleString('ko-KR')}회` : formatWon(value);
+
+// 혜택 한 줄 (사용량 / 한도 + 진행 바). 한도가 없는 혜택은 이름만 보여줍니다.
 function BenefitItem({ benefit, onEdit, onEnterLimit }) {
-  const { name, used, limit, isLimitEntered = true, isEstimated } = benefit;
-  const isExhausted = used >= limit;
-  const ratio = limit > 0 ? Math.min(used / limit, 1) : 0;
+  const { name, cap, usedInRecommendation, isLimitEntered, isEstimated } =
+    benefit;
+  const used = cap?.used ?? 0;
+  const isExhausted = Boolean(cap) && isLimitEntered && used >= cap.limit;
+  const ratio = cap && cap.limit > 0 ? Math.min(used / cap.limit, 1) : 0;
 
   return (
-    <li className="flex items-center gap-[24px]">
+    <li
+      className={cn(
+        'flex items-center gap-[24px]',
+        // 추천 계산에 쓰이지 않는 혜택은 회색으로 흐리게 표시합니다.
+        !usedInRecommendation && 'opacity-50 grayscale',
+      )}
+    >
       <span className="size-[64px] shrink-0 bg-[repeating-conic-gradient(#e6e6e6_0_25%,#f1f1f1_0_50%)] bg-size-[14px_14px]" />
       <div className="flex min-w-0 flex-1 flex-col gap-[4px]">
-        <p className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#3B426B]">
-          {name}
-        </p>
-        <div className="flex items-center justify-between gap-2">
-          <p className="flex items-center gap-[6px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]">
-            <span>{formatWon(used)}</span>
-            <span className="h-[10px] w-px bg-[#C4C4C4]" />
-            <span>{formatWon(limit)}</span>
+        <div className="flex items-start justify-between gap-2">
+          <p className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] break-keep text-[#3B426B]">
+            {name}
           </p>
-          {!isLimitEntered ? (
-            <div className="flex shrink-0 items-center gap-[4px]">
-              {isEstimated && (
-                <span className="rounded-[27px] bg-[#DBE1FF] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8C9EFF]">
-                  추정
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={onEnterLimit}
-                className="flex items-center gap-[4px] rounded-[27px] bg-[#FAFAFA] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]"
-              >
-                <Plus className="size-[16px] text-[#C4C4C4]" strokeWidth={2} />
-                한도 입력
-              </button>
-            </div>
-          ) : isExhausted ? (
-            <span className="shrink-0 rounded-[27px] bg-[#F8C5C0] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#EE695D]">
-              한도 소진
+          {!usedInRecommendation && (
+            <span className="shrink-0 rounded-[27px] bg-[#EBEBEB] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]">
+              추천 미반영
             </span>
-          ) : (
-            <button
-              type="button"
-              onClick={onEdit}
-              className="flex shrink-0 items-center gap-[4px] rounded-[27px] bg-[#FAFAFA] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]"
-            >
-              <EditIcon
-                className="size-[12px] fill-[#8E8E8E] text-[#8E8E8E]"
-                strokeWidth={1.5}
-              />
-              수정
-            </button>
           )}
         </div>
-        <div className="mt-[4px] h-[8px] w-full overflow-hidden rounded-full bg-[#EBEBEB] shadow-[inset_0_0_4px_0_rgba(0,0,0,0.08)]">
-          <div
-            className={cn(
-              'h-full rounded-full',
-              isExhausted ? 'bg-[#DBE1FF]' : 'bg-[#8C9EFF]',
-            )}
-            style={{ width: `${ratio * 100}%` }}
-          />
-        </div>
+        {cap && (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <p className="flex items-center gap-[6px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]">
+                <span>{isLimitEntered ? formatCap(used, cap.unit) : '-'}</span>
+                <span className="h-[10px] w-px bg-[#C4C4C4]" />
+                <span>{formatCap(cap.limit, cap.unit)}</span>
+              </p>
+              {!usedInRecommendation ? null : !isLimitEntered ? (
+                <div className="flex shrink-0 items-center gap-[4px]">
+                  {isEstimated && (
+                    <span className="rounded-[27px] bg-[#DBE1FF] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8C9EFF]">
+                      추정
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onEnterLimit}
+                    className="flex items-center gap-[4px] rounded-[27px] bg-[#FAFAFA] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]"
+                  >
+                    <Plus
+                      className="size-[16px] text-[#C4C4C4]"
+                      strokeWidth={2}
+                    />
+                    한도 입력
+                  </button>
+                </div>
+              ) : isExhausted ? (
+                <span className="shrink-0 rounded-[27px] bg-[#F8C5C0] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#EE695D]">
+                  한도 소진
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  className="flex shrink-0 items-center gap-[4px] rounded-[27px] bg-[#FAFAFA] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]"
+                >
+                  <EditIcon
+                    className="size-[12px] fill-[#8E8E8E] text-[#8E8E8E]"
+                    strokeWidth={1.5}
+                  />
+                  수정
+                </button>
+              )}
+            </div>
+            <div className="mt-[4px] h-[8px] w-full overflow-hidden rounded-full bg-[#EBEBEB] shadow-[inset_0_0_4px_0_rgba(0,0,0,0.08)]">
+              <div
+                className={cn(
+                  'h-full rounded-full',
+                  isExhausted ? 'bg-[#DBE1FF]' : 'bg-[#8C9EFF]',
+                )}
+                style={{ width: `${ratio * 100}%` }}
+              />
+            </div>
+          </>
+        )}
       </div>
     </li>
   );
@@ -215,7 +242,23 @@ export default function CardPage() {
     Math.max(Math.round(scrollPosition), 0),
     cards.length - 1,
   );
-  const activeCard = cards[activeIndex];
+  const activeListCard = cards[activeIndex];
+  // 가운데 카드의 상세(혜택·한도)를 받아 목록 정보에 합칩니다.
+  const {
+    data: detail,
+    isPending: isDetailPending,
+    isError: isDetailError,
+    refetch: refetchDetail,
+  } = useOwnedCardDetail(activeListCard?.id);
+  const activeCard =
+    activeListCard && detail?.id === activeListCard.id
+      ? {
+          ...activeListCard,
+          benefits: detail.benefits,
+          performanceRequirement: detail.performanceRequirement,
+          savedBenefit: detail.savedBenefit,
+        }
+      : activeListCard;
   const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const closeDeleteDialog = useCallback(
@@ -384,25 +427,38 @@ export default function CardPage() {
             카똑에서 확인된 결제 내역만 입력돼요.
           </p>
 
-          {/* TODO: 3-2 카드 상세 API 연동 전에는 목록의 대표 혜택만 보여줍니다. */}
-          {activeCard.benefits.length === 0 && (
-            <p className="mt-[24px] font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#3B426B]">
-              {activeCard.representativeBenefit ??
-                '적용할 수 있는 혜택이 없어요'}
+          {isDetailPending ? (
+            <p className="mt-[24px] font-['Pretendard'] text-[16px] leading-[140%] font-[400] text-[#8E8E8E]">
+              혜택을 불러오는 중이에요
             </p>
+          ) : isDetailError ? (
+            <div className="mt-[24px] flex items-center justify-between gap-2 font-['Pretendard'] text-[16px] leading-[140%] font-[400] text-[#8E8E8E]">
+              <p>혜택을 불러오지 못했어요</p>
+              <button
+                type="button"
+                onClick={() => refetchDetail()}
+                className="shrink-0 rounded-[27px] bg-[#121212] px-[12px] py-[4px] text-[14px] text-[#FAFAFA]"
+              >
+                다시 시도
+              </button>
+            </div>
+          ) : activeCard.benefits.length === 0 ? (
+            <p className="mt-[24px] font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#3B426B]">
+              적용할 수 있는 혜택이 없어요
+            </p>
+          ) : (
+            <ul className="mt-[24px] flex flex-col gap-[16px]">
+              {activeCard.benefits.map((benefit) => (
+                <BenefitItem
+                  key={benefit.id}
+                  benefit={benefit}
+                  onEdit={() => setUsageInput('sheet')}
+                  // TODO: 한도 입력 화면이 정해지면 연결합니다.
+                  onEnterLimit={() => {}}
+                />
+              ))}
+            </ul>
           )}
-
-          <ul className="mt-[24px] flex flex-col gap-[16px] empty:hidden">
-            {activeCard.benefits.map((benefit) => (
-              <BenefitItem
-                key={benefit.id}
-                benefit={benefit}
-                onEdit={() => setUsageInput('sheet')}
-                // TODO: 한도 입력 화면이 정해지면 연결합니다.
-                onEnterLimit={() => {}}
-              />
-            ))}
-          </ul>
         </section>
       </main>
 
