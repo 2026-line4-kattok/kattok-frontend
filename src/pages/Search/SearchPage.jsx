@@ -7,17 +7,7 @@ import mrLifeImage from '@/assets/card/신한카드 Mr Life.png';
 import simplePlanPlusImage from '@/assets/card/신한카드 Simple Plan+.png';
 import noriImage from '@/assets/card/KB 국민은행 노리2.png';
 import hanaKPassCheckImage from '@/assets/card/하나 K패스 체크카드.png';
-
-const CATEGORIES = [
-  '카페',
-  '편의점',
-  '음식점',
-  '마트',
-  '온라인 쇼핑',
-  '약국',
-  '택시',
-  '백화점',
-];
+import { CATEGORIES } from '@/constants/categories';
 
 // TODO: API 연동 시 서버 데이터로 교체합니다.
 const RECENT_PLACES = [
@@ -130,14 +120,18 @@ export default function SearchPage() {
             매장 전용 혜택은 빼고 계산해요
           </p>
           <ul className="-mx-[18px] mt-[20px] flex [scrollbar-width:none] gap-[22px] overflow-x-auto px-[18px] max-phone-xs:-mx-3 max-phone-xs:px-3 [&::-webkit-scrollbar]:hidden">
-            {CATEGORIES.map((label) => (
+            {CATEGORIES.map(({ label, icon }) => (
               <li key={label} className="shrink-0">
                 <button
                   type="button"
                   onClick={() => goToAmount({ category: label })}
                   className="flex w-[60px] flex-col items-center gap-[4px]"
                 >
-                  <span className="size-[64px] bg-[repeating-conic-gradient(#e6e6e6_0_25%,#f6f6f6_0_50%)] bg-size-[15px_15px]" />
+                  <img
+                    src={icon}
+                    alt=""
+                    className="size-[64px] object-contain"
+                  />
                   <span className="font-['Pretendard'] text-[14px] leading-[140%] font-[400] whitespace-nowrap text-[#8E8E8E]">
                     {label}
                   </span>

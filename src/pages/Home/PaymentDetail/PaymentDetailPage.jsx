@@ -307,6 +307,7 @@ export default function PaymentDetailPage() {
                 recordedPayment: {
                   id: payment.id,
                   place: payment.place,
+                  category: payment.category,
                   discount: selectedCard.discount,
                 },
               },
