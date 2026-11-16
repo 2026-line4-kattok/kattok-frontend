@@ -1,6 +1,7 @@
 import { Check, Ellipsis, Plus, X } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import Toast from '@/components/common/Toast';
 import { DeletePaymentDialog, Modal } from '@/pages/Mypage/MypageRecord';
 import BottomNav from '@/components/layout/BottomNav';
@@ -8,7 +9,7 @@ import { cn } from '@/utils/cn';
 import CardUsageAmountScreen from '@/pages/Home/PaymentDetail/CardUsageAmountScreen';
 import CardUsageSheet from '@/pages/Home/PaymentDetail/CardUsageSheet';
 import CardMoreSheet from './CardMoreSheet';
-import { MY_CARDS } from './cardData';
+import useOwnedCards, { OWNED_CARDS_QUERY_KEY } from '@/hooks/useOwnedCards';
 import { EditIcon } from '@/assets/icons/icons';
 
 // 캐러셀 카드 크기 (px) — 스크롤 위치로 현재 카드를 계산할 때 사용합니다.
@@ -40,7 +41,7 @@ function CardImage({ card }) {
         }
       />
       {/* 실적 확인이 필요한 카드는 비활성화된 것처럼 뿌옇게 덮습니다. */}
-      {!card.isPerformanceConfirmed && (
+      {card.needsPerformance && (
         <span className="absolute inset-0 bg-[#F1F1F1]/50" />
       )}
     </div>
@@ -201,8 +202,13 @@ function LastCardDialog({ onClose, onAddCard }) {
 export default function CardPage() {
   const navigate = useNavigate();
   const scrollRef = useRef(null);
-  // TODO: API 연동 시 서버 데이터로 교체합니다. (실적 등록 결과를 화면에 반영하기 위해 상태로 둡니다.)
-  const [cards, setCards] = useState(MY_CARDS);
+  const queryClient = useQueryClient();
+  const { data: cards = [], isPending, isError, refetch } = useOwnedCards();
+  // 서버 응답(캐시)을 직접 고칩니다. 수정·삭제 API가 연동되면 요청 성공 후 invalidate로 바꿉니다.
+  const updateOwnedCards = (updater) =>
+    queryClient.setQueryData(OWNED_CARDS_QUERY_KEY, (prev = []) =>
+      updater(prev),
+    );
   // 스크롤 위치를 카드 단위로 환산한 값 (0 = 첫 카드가 가운데, 1.5 = 두 번째와 세 번째 카드 사이)
   const [scrollPosition, setScrollPosition] = useState(0);
   const activeIndex = Math.min(
@@ -235,12 +241,52 @@ export default function CardPage() {
     });
   };
 
-  // TODO: API 연동 시 카드 삭제를 서버에 반영합니다.
+  // TODO: 카드 삭제 API 연동 시 서버에 반영합니다.
   const handleDeleteCard = () => {
-    setCards((prev) => prev.filter((card) => card.id !== activeCard.id));
+    updateOwnedCards((prev) =>
+      prev.filter((card) => card.id !== activeCard.id),
+    );
     setIsDeleteDialogOpen(false);
     setToast({ type: 'deleted', card: activeCard });
   };
+
+  if (isPending || isError || !activeCard) {
+    return (
+      <div className="min-h-dvh bg-[#F1F1F1]">
+        <main className="mx-auto flex min-h-dvh w-full max-w-[402px] flex-col items-center justify-center gap-[12px] px-[18px] pb-[calc(80px+max(28px,env(safe-area-inset-bottom)))] text-center font-['Pretendard'] text-[16px] leading-[140%] text-[#8E8E8E]">
+          {isPending ? (
+            <p>카드를 불러오는 중이에요</p>
+          ) : isError ? (
+            <>
+              <p>카드를 불러오지 못했어요</p>
+              <button
+                type="button"
+                onClick={() => refetch()}
+                className="rounded-[27px] bg-[#121212] px-[16px] py-[8px] text-[#FAFAFA]"
+              >
+                다시 시도
+              </button>
+            </>
+          ) : (
+            <>
+              <p>등록된 카드가 없어요</p>
+              <button
+                type="button"
+                onClick={() =>
+                  navigate('/signup', { state: { initialStep: 2 } })
+                }
+                className="rounded-[27px] bg-[#121212] px-[16px] py-[8px] text-[#FAFAFA]"
+              >
+                카드 추가하기
+              </button>
+            </>
+          )}
+        </main>
+        {toast && <CardToast toast={toast} onClose={closeToast} />}
+        <BottomNav />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-[#F1F1F1]">
@@ -302,18 +348,28 @@ export default function CardPage() {
           })}
         </div>
 
-        <div className="mt-[16px] flex justify-center">
-          {activeCard.isPerformanceConfirmed ? (
+        {/* statusChip이 null(NEEDS_CHECK 등)이면 칩을 표시하지 않습니다. */}
+        <div className="mt-[16px] flex min-h-[34px] justify-center">
+          {activeCard.statusChip === 'ALL_CONFIRMED' && (
             <span className="rounded-[27px] bg-[#DBE1FF] px-[12px] py-[6px] font-['Pretendard'] text-[16px] leading-[140%] font-[400] text-[#8C9EFF]">
               {activeCard.performanceMonth}월 카드 실적 확인 완료
             </span>
-          ) : (
-            // TODO: 실적 확인 화면이 정해지면 연결합니다.
-            <span className="flex items-center gap-[6px] rounded-[27px] bg-[#F8C5C0] px-[12px] py-[6px] font-['Pretendard'] text-[16px] leading-[140%] font-[400] text-[#EE695D]">
+          )}
+          {activeCard.statusChip === 'NEEDS_PERFORMANCE' && (
+            <button
+              type="button"
+              onClick={() => setUsageInput('sheet')}
+              className="flex items-center gap-[6px] rounded-[27px] bg-[#F8C5C0] px-[12px] py-[6px] font-['Pretendard'] text-[16px] leading-[140%] font-[400] text-[#EE695D]"
+            >
               <span className="flex size-[18px] items-center justify-center rounded-full bg-[#D53D30] text-[12px] leading-none font-bold text-[#FAFAFA]">
                 !
               </span>
               {activeCard.performanceMonth}월 카드 실적 확인 필요
+            </button>
+          )}
+          {activeCard.statusChip === 'LIMIT_EXHAUSTED' && (
+            <span className="rounded-[27px] bg-[#F8C5C0] px-[12px] py-[6px] font-['Pretendard'] text-[16px] leading-[140%] font-[400] text-[#EE695D]">
+              한도를 다 쓴 혜택이 있어요
             </span>
           )}
         </div>
@@ -328,7 +384,15 @@ export default function CardPage() {
             카똑에서 확인된 결제 내역만 입력돼요.
           </p>
 
-          <ul className="mt-[24px] flex flex-col gap-[16px]">
+          {/* TODO: 3-2 카드 상세 API 연동 전에는 목록의 대표 혜택만 보여줍니다. */}
+          {activeCard.benefits.length === 0 && (
+            <p className="mt-[24px] font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#3B426B]">
+              {activeCard.representativeBenefit ??
+                '적용할 수 있는 혜택이 없어요'}
+            </p>
+          )}
+
+          <ul className="mt-[24px] flex flex-col gap-[16px] empty:hidden">
             {activeCard.benefits.map((benefit) => (
               <BenefitItem
                 key={benefit.id}
@@ -392,16 +456,27 @@ export default function CardPage() {
           amounts={usageAmounts[activeCard.id]}
           // TODO: API 연동 시 입력한 사용 현황을 저장하고 혜택 현황을 다시 받아옵니다.
           onSubmit={() => {
-            setCards((prev) =>
+            // TODO: 실적 수정 API 연동 후에는 응답 성공 시 invalidateQueries로 목록을 다시 받습니다.
+            updateOwnedCards((prev) =>
               prev.map((card) =>
                 card.id === activeCard.id
-                  ? { ...card, isPerformanceConfirmed: true }
+                  ? {
+                      ...card,
+                      performanceStatus: 'CONFIRMED',
+                      statusChip:
+                        card.statusChip === 'NEEDS_PERFORMANCE'
+                          ? 'ALL_CONFIRMED'
+                          : card.statusChip,
+                    }
                   : card,
               ),
             );
             setToast({
               // 저장 전에 실적이 확인되지 않은 카드면 처음 등록, 이미 확인된 카드면 수정
-              type: activeCard.isPerformanceConfirmed ? 'edited' : 'registered',
+              type:
+                activeCard.performanceStatus === 'CONFIRMED'
+                  ? 'edited'
+                  : 'registered',
               card: activeCard,
             });
           }}
