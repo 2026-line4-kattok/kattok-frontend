@@ -3,27 +3,70 @@ import { useRef, useState } from 'react';
 import AmountKeypad, { AmountDisplay } from '@/components/common/AmountKeypad';
 import useAmountInput from '@/hooks/useAmountInput';
 import { cn } from '@/utils/cn';
+import { getUsageCaps, performanceAnswerFromAmount } from '@/utils/cardUsage';
 
 // 단계가 바뀔 때 화면 전체가 옅어졌다가(out) 다음 단계로 짙어집니다(in).
 const FADE_DURATION = '200ms';
 
 // 카드 사용 현황에서 물어볼 금액 단계 (지난달 실적 → 업종별 받은 할인)
-const getSteps = (card) => [
-  ...(card.performanceRequirement
-    ? [
-        {
-          name: 'performance',
-          title: '카드 사용 현황을 알려주세요',
-          placeholder: '결제 금액',
-        },
-      ]
-    : []),
-  ...(card.benefitCategories ?? []).map((category) => ({
-    name: `remaining-${category}`,
-    title: `${category} 할인 얼마나 받았나요?`,
-    placeholder: '할인 금액',
-  })),
-];
+// card.performanceOptions·usageCaps(3-3 상태 조회)가 있으면 서버 데이터로 단계를 만듭니다.
+// 한도 단계는 입력한 지난달 결제 금액에 해당하는 실적 구간 기준이라, 금액에 따라 단계 수가 바뀝니다.
+const getSteps = (card, amounts = {}) => {
+  const usageCaps = card.usageCaps
+    ? getUsageCaps(
+        card,
+        performanceAnswerFromAmount(
+          card.tierOptions,
+          amounts.performance,
+          card.initialAnswers?.performance,
+        ),
+      )
+    : null;
+  return [
+    ...(card.performanceOptions || card.performanceRequirement
+      ? [
+          {
+            name: 'performance',
+            title: '카드 사용 현황을 알려주세요',
+            placeholder: '결제 금액',
+          },
+        ]
+      : []),
+    ...(usageCaps ?? []).map((cap) =>
+      cap.unit === 'COUNT'
+        ? {
+            name: cap.name,
+            title: `${cap.description}, 몇 번 남았나요?`,
+            placeholder: '남은 횟수',
+            unit: '회',
+          }
+        : {
+            name: cap.name,
+            title: `${cap.description}, 얼마나 남았나요?`,
+            placeholder: '잔여 한도',
+          },
+    ),
+    ...(usageCaps ? [] : (card.benefitCategories ?? [])).map((category) => ({
+      name: `remaining-${category}`,
+      title: `${category} 할인 얼마나 받았나요?`,
+      placeholder: '할인 금액',
+    })),
+  ];
+};
+
+// 단계가 이보다 많으면 헤더 제목과 겹치지 않도록 '현재 … 마지막'으로 줄여 보여줍니다.
+const MAX_VISIBLE_STEPS = 3;
+
+// 보여줄 단계 번호(0부터) 목록. 'ellipsis'는 생략 표시입니다.
+// 예) 7단계: 1단계 → [1 … 7], 4단계 → [4 … 7], 6단계 → [6 7], 7단계 → [1 … 7]
+const getVisibleSteps = (total, current) => {
+  if (total <= MAX_VISIBLE_STEPS)
+    return Array.from({ length: total }, (_, index) => index);
+  const last = total - 1;
+  if (current === last) return [0, 'ellipsis', last];
+  if (current === last - 1) return [current, last];
+  return [current, 'ellipsis', last];
+};
 
 function StepIndicator({ total, current }) {
   return (
@@ -31,20 +74,30 @@ function StepIndicator({ total, current }) {
       aria-label={`${total}단계 중 ${current + 1}단계`}
       className="flex shrink-0 items-center gap-[10px]"
     >
-      {Array.from({ length: total }, (_, index) => (
-        <li
-          key={index}
-          aria-current={index === current ? 'step' : undefined}
-          className={cn(
-            "flex size-[24px] items-center justify-center rounded-full font-['Pretendard'] text-[16px] leading-none font-[400]",
-            index === current
-              ? 'bg-[#8C9EFF] text-[#F4F5FF]'
-              : 'bg-[#DBE1FF] text-[#A3B1FF]',
-          )}
-        >
-          {index + 1}
-        </li>
-      ))}
+      {getVisibleSteps(total, current).map((index) =>
+        index === 'ellipsis' ? (
+          <li
+            key="ellipsis"
+            aria-hidden="true"
+            className="flex h-[24px] items-center font-['Pretendard'] text-[16px] leading-none font-[400] text-[#A3B1FF]"
+          >
+            …
+          </li>
+        ) : (
+          <li
+            key={index}
+            aria-current={index === current ? 'step' : undefined}
+            className={cn(
+              "flex size-[24px] items-center justify-center rounded-full font-['Pretendard'] text-[16px] leading-none font-[400]",
+              index === current
+                ? 'bg-[#8C9EFF] text-[#F4F5FF]'
+                : 'bg-[#DBE1FF] text-[#A3B1FF]',
+            )}
+          >
+            {index + 1}
+          </li>
+        ),
+      )}
     </ol>
   );
 }
@@ -88,11 +141,17 @@ function AmountStep({
         <AmountDisplay
           amount={amount}
           placeholder={step.placeholder}
+          unit={step.unit}
           className="mt-[48px]"
         />
 
         <div className="pt-[48px]">
-          <AmountKeypad onDigit={onDigit} onDelete={onDelete} onAdd={onAdd} />
+          <AmountKeypad
+            onDigit={onDigit}
+            onDelete={onDelete}
+            onAdd={onAdd}
+            hasQuickAdds={step.unit !== '회'}
+          />
         </div>
       </main>
 
@@ -117,9 +176,10 @@ export default function CardUsageAmountScreen({
   onBack,
   onSubmit,
 }) {
-  const steps = getSteps(card);
   const [stepIndex, setStepIndex] = useState(0);
   const [amounts, setAmounts] = useState(initialAmounts);
+  // 입력한 실적 금액에 따라 한도 단계가 바뀌므로 지금까지 입력한 금액으로 단계를 만듭니다.
+  const steps = getSteps(card, amounts);
   // 'idle' | 'out'(옅어지는 중) | 'in'(짙어지는 중)
   const [fade, setFade] = useState('idle');
   // 화면이 다 옅어진 뒤 넘어갈 단계
@@ -141,7 +201,8 @@ export default function CardUsageAmountScreen({
       pendingRef.current = null;
       setAmounts(nextAmounts);
       setStepIndex(nextIndex);
-      setAmount(nextAmounts[steps[nextIndex].name] ?? 0);
+      // 실적 금액이 바뀌면 다음 단계(한도)도 바뀌므로 새 금액 기준으로 찾습니다.
+      setAmount(nextAmounts[getSteps(card, nextAmounts)[nextIndex].name] ?? 0);
       setFade('in');
     } else if (fade === 'in') {
       setFade('idle');
@@ -159,7 +220,8 @@ export default function CardUsageAmountScreen({
 
   const handleSave = () => {
     const nextAmounts = { ...amounts, [step.name]: amount };
-    if (stepIndex === steps.length - 1) onSubmit?.(nextAmounts);
+    if (stepIndex === getSteps(card, nextAmounts).length - 1)
+      onSubmit?.(nextAmounts);
     else goToStep(stepIndex + 1, nextAmounts);
   };
 

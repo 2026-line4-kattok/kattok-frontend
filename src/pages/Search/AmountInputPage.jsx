@@ -2,6 +2,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import AmountKeypad, { AmountDisplay } from '@/components/common/AmountKeypad';
 import useAmountInput from '@/hooks/useAmountInput';
 import PageHeader from '@/components/layout/PageHeader';
+import { getCategoryIcon } from '@/constants/categories';
 import {
   createPaymentDetail,
   hasBenefit,
@@ -19,6 +20,7 @@ export default function AmountInputPage() {
 
   const { place, category } = state;
   const title = place ?? category;
+  const categoryIcon = getCategoryIcon(category);
 
   const handleSave = () => {
     // TODO: API 연동 시 결제 기록(장소, 업종, 금액)을 서버에 저장하고 혜택 계산 결과를 받아옵니다.
@@ -30,14 +32,23 @@ export default function AmountInputPage() {
   return (
     <div className="flex h-dvh flex-col bg-[#F1F1F1]">
       <PageHeader
-        title={title}
+        // 업종으로 고르기에서 들어오면 장소 없이 업종만 있습니다.
+        title={place ? title : '업종으로 고르기'}
         onBack={() => navigate(-1)}
         onClose={() => navigate('/')}
       />
 
       <main className="mx-auto flex min-h-0 w-full max-w-[402px] flex-1 flex-col px-[22px] max-phone-xs:px-3">
         <div className="mt-[32px] flex items-center gap-[12px]">
-          <span className="size-[48px] shrink-0 bg-[repeating-conic-gradient(#e6e6e6_0_25%,#f6f6f6_0_50%)] bg-size-[12px_12px]" />
+          {categoryIcon ? (
+            <img
+              src={categoryIcon}
+              alt=""
+              className="size-[48px] shrink-0 object-contain"
+            />
+          ) : (
+            <span className="size-[48px] shrink-0 bg-[repeating-conic-gradient(#e6e6e6_0_25%,#f6f6f6_0_50%)] bg-size-[12px_12px]" />
+          )}
           <span className="flex min-w-0 flex-col gap-[4px]">
             <span className="truncate font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#3B426B]">
               {title}

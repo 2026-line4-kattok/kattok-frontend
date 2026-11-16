@@ -10,7 +10,8 @@ const QUICK_ADDS = [
 
 const DIGIT_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
-export function AmountDisplay({ amount, placeholder, className }) {
+// unit: 숫자 뒤에 붙는 단위 (기본 '원', 횟수 입력은 '회')
+export function AmountDisplay({ amount, placeholder, className, unit = '원' }) {
   return (
     <p
       role="textbox"
@@ -26,7 +27,7 @@ export function AmountDisplay({ amount, placeholder, className }) {
           <span className="text-[#121212]">
             {amount.toLocaleString('ko-KR')}
           </span>
-          <span className="text-[#121212]">원</span>
+          <span className="text-[#121212]">{unit}</span>
         </>
       ) : (
         <>
@@ -56,10 +57,21 @@ function Key({ children, onClick, label, disabled }) {
 }
 
 // 빠른 금액 추가 버튼 + 숫자 키패드
-export default function AmountKeypad({ onDigit, onDelete, onAdd }) {
+// hasQuickAdds: 금액이 아닌 값(횟수 등)을 입력할 때는 빠른 금액 추가 버튼을 숨깁니다.
+export default function AmountKeypad({
+  onDigit,
+  onDelete,
+  onAdd,
+  hasQuickAdds = true,
+}) {
   return (
     <div className="flex flex-col">
-      <div className="-mx-[4px] grid grid-cols-4 gap-[10px] max-phone-xs:mx-0 max-phone-xs:gap-[6px]">
+      <div
+        className={cn(
+          '-mx-[4px] grid grid-cols-4 gap-[10px] max-phone-xs:mx-0 max-phone-xs:gap-[6px]',
+          !hasQuickAdds && 'hidden',
+        )}
+      >
         {QUICK_ADDS.map(({ label, value }) => (
           <button
             key={label}
