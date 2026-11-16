@@ -1,3 +1,4 @@
+import { getUsageCaps, performanceAnswerFromAmount } from '@/utils/cardUsage';
 import emptyCardImage from '@/assets/onboarding/card/empty.png';
 
 // 카드 이미지: 파일 이름(카드명)으로 찾아 씁니다. 서버가 이미지 URL을 주면 교체합니다.
@@ -198,33 +199,76 @@ const formatManWon = (value) => `${value / 10000}만원`;
 // 시트 질문 이름 (시트·금액 입력 화면·저장 값에서 같은 이름을 씁니다.)
 export const capQuestionName = (capGroupId) => `cap-${capGroupId}`;
 
+// 한도 항목(3-3 caps) 목록 → 한도 질문 목록
+// 금액 또는 횟수 제한이 있는 한도마다 질문을 하나씩 만들고, 같은 한도 ID는 한 번만 묻습니다.
+// 금액 제한이 있으면 금액(원), 횟수 제한만 있으면 횟수(회)로 묻습니다.
+// 이미 질문 형태({ name, ... })인 항목은 그대로 둡니다.
+const toUsageCaps = (caps) => {
+  const byId = new Map();
+  caps.forEach((cap) => {
+    if (byId.has(cap.capGroupId)) return;
+    if (cap.name) {
+      byId.set(cap.capGroupId, cap);
+      return;
+    }
+    if (cap.capAmount == null && cap.capCount == null) return;
+    const unit = cap.capAmount != null ? 'AMOUNT' : 'COUNT';
+    byId.set(cap.capGroupId, {
+      name: capQuestionName(cap.capGroupId),
+      capGroupId: cap.capGroupId,
+      tierId: cap.tierId ?? null,
+      description: cap.description,
+      unit,
+      capAmount: cap.capAmount,
+      capCount: cap.capCount,
+      // 질문 단위의 전체 한도·남은 값
+      limit: unit === 'AMOUNT' ? cap.capAmount : cap.capCount,
+      remaining:
+        unit === 'AMOUNT' ? cap.remainingLimitAmount : cap.remainingCount,
+      // 일 한도는 저장할 때 periodStart(날짜)가 필요합니다.
+      periodStart: cap.periodStart,
+    });
+  });
+  return [...byId.values()];
+};
+
 // GET /api/v1/owned-cards/{id}/state 응답 → 시트에 넘길 카드 필드
 export const toOwnedCardStateView = (state) => {
   const options = state.performanceTierOptions ?? [];
   const hasTiers =
     ['SINGLE', 'MULTIPLE'].includes(state.performanceType) &&
     options.length > 0;
-  // 금액 또는 횟수 제한이 있는 한도마다 질문을 하나씩 만듭니다.
-  // 금액 제한이 있으면 금액(원), 횟수 제한만 있으면 횟수(회)로 묻습니다.
-  const usageCaps = (state.caps ?? [])
-    .filter((cap) => cap.capAmount != null || cap.capCount != null)
-    .map((cap) => {
-      const unit = cap.capAmount != null ? 'AMOUNT' : 'COUNT';
-      return {
-        name: capQuestionName(cap.capGroupId),
-        capGroupId: cap.capGroupId,
-        description: cap.description,
-        unit,
-        capAmount: cap.capAmount,
-        capCount: cap.capCount,
-        // 질문 단위의 전체 한도·남은 값
-        limit: unit === 'AMOUNT' ? cap.capAmount : cap.capCount,
-        remaining:
-          unit === 'AMOUNT' ? cap.remainingLimitAmount : cap.remainingCount,
-        // 일 한도는 저장할 때 periodStart(날짜)가 필요합니다.
-        periodStart: cap.periodStart,
-      };
-    });
+  const stateCaps = state.caps ?? [];
+  // 실적 무관 한도(tierId: null)는 어느 구간을 골라도 묻습니다.
+  const alwaysOnCaps = stateCaps.filter((cap) => cap.tierId == null);
+  // 선택지별 한도(상위 한도·저장된 남은 값 포함). 없으면 현재 caps에서 그 구간 것만 씁니다.
+  const capsOfTier = (tier) =>
+    tier.caps ?? stateCaps.filter((cap) => cap.tierId === tier.id);
+
+  // 실적 선택값별 한도 질문: 실적 무관 한도 + 고른 구간 한도
+  const usageCapsByAnswer = hasTiers
+    ? {
+        BELOW: toUsageCaps(alwaysOnCaps),
+        // 모르겠어요: 서버처럼 최저 혜택 구간을 가정합니다. 지금 UNKNOWN이면 서버가 준 caps를 그대로 씁니다.
+        UNKNOWN: toUsageCaps(
+          state.performanceStatus === 'UNKNOWN'
+            ? stateCaps
+            : [...alwaysOnCaps, ...capsOfTier(options[0])],
+        ),
+        ...Object.fromEntries(
+          options.map((tier) => [
+            `TIER-${tier.id}`,
+            toUsageCaps([...alwaysOnCaps, ...capsOfTier(tier)]),
+          ]),
+        ),
+      }
+    : null;
+  // 실적 구간이 없는 카드(NONE·NEEDS_CHECK)는 현재 caps만 묻습니다.
+  const usageCaps = toUsageCaps(stateCaps);
+  // 미리 고를 값은 모든 구간의 한도에 대해 만들어 둡니다. (구간을 바꿔도 저장된 값으로 시작)
+  const allUsageCaps = toUsageCaps(
+    [usageCaps, ...Object.values(usageCapsByAnswer ?? {})].flat(),
+  );
 
   // 지난달 실적 선택지: 최저 구간 미만 / 구간별 / 모르겠어요
   const performanceOptions = hasTiers
@@ -266,13 +310,16 @@ export const toOwnedCardStateView = (state) => {
     performanceOptions,
     tierOptions: hasTiers ? options : [],
     usageCaps,
+    usageCapsByAnswer,
     initialAnswers: {
       ...(performanceOptions && { performance: performanceAnswer }),
-      ...Object.fromEntries(usageCaps.map((cap) => [cap.name, capAnswer(cap)])),
+      ...Object.fromEntries(
+        allUsageCaps.map((cap) => [cap.name, capAnswer(cap)]),
+      ),
     },
     // 직접 입력 화면의 초기값 (저장된 남은 값만)
     initialAmounts: Object.fromEntries(
-      usageCaps
+      allUsageCaps
         .filter((cap) => cap.remaining != null)
         .map((cap) => [cap.name, cap.remaining]),
     ),
@@ -298,14 +345,6 @@ const performanceFromAnswer = (answer) => {
   return { status: answer === 'BELOW' ? 'BELOW' : 'UNKNOWN' };
 };
 
-// 직접 입력한 지난달 결제 금액 → 해당하는 가장 높은 구간 (없으면 최저 구간 미달)
-const performanceFromAmount = (tierOptions, amount) => {
-  const tier = tierOptions
-    .filter((option) => option.minAmount <= amount)
-    .at(-1);
-  return tier ? { status: 'CONFIRMED', tierId: tier.id } : { status: 'BELOW' };
-};
-
 // 빠른 선택 → 남은 값: [다 썼어요] 0, [안 썼어요] 전체 한도·횟수, [모르겠어요] null
 const remainingFromAnswer = (answer, limit) =>
   answer === 'used' ? 0 : answer === 'unused' ? limit : null;
@@ -319,14 +358,22 @@ const remainingFromAnswer = (answer, limit) =>
 export const toOwnedCardStateRequest = (state, input, { isAmountInput }) => {
   const body = { month: state.month ?? getKstMonth() };
 
+  // 고른(또는 금액으로 정해진) 실적 구간. 한도 질문도 이 구간 기준입니다.
+  const performanceAnswer = isAmountInput
+    ? performanceAnswerFromAmount(
+        state.tierOptions,
+        input.performance,
+        state.initialAnswers.performance,
+      )
+    : input.performance;
+
   // NONE·NEEDS_CHECK는 실적 객체를 보내면 400이므로 구간 선택지가 있을 때만 보냅니다.
   if (state.performanceOptions && input.performance !== undefined) {
-    body.performance = isAmountInput
-      ? performanceFromAmount(state.tierOptions, input.performance)
-      : performanceFromAnswer(input.performance);
+    body.performance = performanceFromAnswer(performanceAnswer);
   }
 
-  const caps = state.usageCaps.flatMap((cap) => {
+  // 새 구간 한도만 보냅니다. 이전 구간 한도는 서버가 그대로 두므로 따로 지우지 않습니다.
+  const caps = getUsageCaps(state, performanceAnswer).flatMap((cap) => {
     const value = input[cap.name];
     if (value === undefined) return [];
     // 선택을 바꾸지 않은 한도는 보내지 않아 저장된 값·추정값을 그대로 둡니다.

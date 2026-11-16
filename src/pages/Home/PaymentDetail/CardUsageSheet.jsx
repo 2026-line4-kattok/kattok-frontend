@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/utils/cn';
+import { getUsageCaps, performanceAnswerFromAmount } from '@/utils/cardUsage';
 
 const SHEET_DURATION = '300ms';
 
@@ -95,6 +96,22 @@ export default function CardUsageSheet({
   const afterCloseRef = useRef(onClose);
   const categories = card.benefitCategories ?? [];
   const requirement = card.performanceRequirement;
+  // 직접 입력한 금액을 시트에서 다시 고칠 수 있도록 복사해 둡니다.
+  const [editedAmounts, setEditedAmounts] = useState(amounts);
+  // 선택한 값 (질문 name → 값). 저장된 값(card.initialAnswers)으로 시작하고,
+  // 고르지 않은 질문은 시안처럼 첫 번째 선택지를 씁니다.
+  const [answers, setAnswers] = useState(() => card.initialAnswers ?? {});
+  // 지금 고른 실적 구간. 한도 질문이 이 구간 기준으로 바뀝니다.
+  const performanceAnswer = editedAmounts
+    ? performanceAnswerFromAmount(
+        card.tierOptions,
+        editedAmounts.performance,
+        card.initialAnswers?.performance,
+      )
+    : (answers.performance ?? card.performanceOptions?.[0].value);
+  const usageCaps = card.usageCaps
+    ? getUsageCaps(card, performanceAnswer)
+    : null;
 
   // card.performanceOptions·usageCaps(3-3 상태 조회)가 있으면 서버 데이터로 질문을 만들고,
   // 없으면 performanceRequirement·benefitCategories로 만듭니다.
@@ -122,9 +139,14 @@ export default function CardUsageSheet({
             },
           ]
         : []),
-    ...(card.usageCaps ?? []).map((cap) => ({
+    ...(usageCaps ?? []).map((cap) => ({
       name: cap.name,
       question: `이번 달 ${cap.description}, 얼마나 썼나요?`,
+      // 직접 입력한 값은 남은 한도·횟수로 저장되므로 금액 입력 화면과 같은 문구로 묻습니다.
+      amountQuestion:
+        cap.unit === 'COUNT'
+          ? `${cap.description}, 몇 번 남았나요?`
+          : `${cap.description}, 얼마나 남았나요?`,
       amountLabel: cap.unit === 'COUNT' ? '남은 횟수' : '잔여 한도',
       unit: cap.unit === 'COUNT' ? '회' : '원',
       options: [
@@ -133,7 +155,7 @@ export default function CardUsageSheet({
         { value: 'unknown', label: '모르겠어요' },
       ],
     })),
-    ...(card.usageCaps ? [] : categories).map((category) => ({
+    ...(usageCaps ? [] : categories).map((category) => ({
       name: `remaining-${category}`,
       question: `이번 달 ${category} 할인 얼마나 받았나요?`,
       amountLabel: '잔여 한도',
@@ -144,17 +166,7 @@ export default function CardUsageSheet({
       ],
     })),
   ];
-  // 직접 입력한 금액을 시트에서 다시 고칠 수 있도록 복사해 둡니다.
-  const [editedAmounts, setEditedAmounts] = useState(amounts);
-  // 저장된 값(card.initialAnswers)이 있으면 그 값으로, 없으면 시안처럼 첫 번째 선택지로 시작합니다.
-  const [answers, setAnswers] = useState(() =>
-    Object.fromEntries(
-      questions.map(({ name, options }) => [
-        name,
-        card.initialAnswers?.[name] ?? options[0].value,
-      ]),
-    ),
-  );
+  const getAnswer = ({ name, options }) => answers[name] ?? options[0].value;
 
   // 닫힐 때도 시트가 내려가고 배경이 옅어진 뒤에 화면에서 빠집니다.
   const close = () => setIsClosing(true);
@@ -173,7 +185,11 @@ export default function CardUsageSheet({
   };
 
   const handleSubmit = () => {
-    onSubmit?.(editedAmounts ?? answers);
+    // 지금 보이는 질문의 값만 넘깁니다. (구간을 바꾸며 사라진 한도 질문은 빼고)
+    onSubmit?.(
+      editedAmounts ??
+        Object.fromEntries(questions.map((q) => [q.name, getAnswer(q)])),
+    );
     close();
   };
 
@@ -232,31 +248,32 @@ export default function CardUsageSheet({
         </div>
 
         <div className="mt-[32px] flex flex-col gap-[24px]">
-          {questions.map(({ name, question, amountLabel, unit, options }) =>
-            amounts ? (
-              <AmountField
-                key={name}
-                name={name}
-                question={question}
-                label={amountLabel}
-                unit={unit}
-                amount={editedAmounts[name]}
-                onChange={(value) =>
-                  setEditedAmounts((prev) => ({ ...prev, [name]: value }))
-                }
-              />
-            ) : (
-              <OptionGroup
-                key={name}
-                name={name}
-                question={question}
-                options={options}
-                value={answers[name]}
-                onChange={(value) =>
-                  setAnswers((prev) => ({ ...prev, [name]: value }))
-                }
-              />
-            ),
+          {questions.map(
+            ({ name, question, amountQuestion, amountLabel, unit, options }) =>
+              amounts ? (
+                <AmountField
+                  key={name}
+                  name={name}
+                  question={amountQuestion ?? question}
+                  label={amountLabel}
+                  unit={unit}
+                  amount={editedAmounts[name]}
+                  onChange={(value) =>
+                    setEditedAmounts((prev) => ({ ...prev, [name]: value }))
+                  }
+                />
+              ) : (
+                <OptionGroup
+                  key={name}
+                  name={name}
+                  question={question}
+                  options={options}
+                  value={getAnswer({ name, options })}
+                  onChange={(value) =>
+                    setAnswers((prev) => ({ ...prev, [name]: value }))
+                  }
+                />
+              ),
           )}
         </div>
         {!amounts && (

@@ -340,6 +340,9 @@ export default function CardPage() {
           ...activeCard,
           performanceOptions: cardState.performanceOptions,
           usageCaps: cardState.usageCaps,
+          // 실적 구간을 바꾸면 한도 질문도 그 구간 기준으로 바뀝니다.
+          usageCapsByAnswer: cardState.usageCapsByAnswer,
+          tierOptions: cardState.tierOptions,
           initialAnswers: cardState.initialAnswers,
         }
       : activeCard;
