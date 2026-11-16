@@ -8,7 +8,14 @@ import { cn } from '@/utils/cn';
 import CardUsageAmountScreen from '@/pages/Home/PaymentDetail/CardUsageAmountScreen';
 import CardUsageSheet from '@/pages/Home/PaymentDetail/CardUsageSheet';
 import CardMoreSheet from './CardMoreSheet';
-import { MY_CARDS } from './cardData';
+import useOwnedCards from '@/hooks/useOwnedCards';
+import useOwnedCardDetail from '@/hooks/useOwnedCardDetail';
+import useOwnedCardState from '@/hooks/useOwnedCardState';
+import useUpdateOwnedCardState from '@/hooks/useUpdateOwnedCardState';
+import useDeleteOwnedCard, {
+  isLastOwnedCardError,
+} from '@/hooks/useDeleteOwnedCard';
+import { toOwnedCardStateRequest } from './ownedCardMapper';
 import { EditIcon } from '@/assets/icons/icons';
 import { getCategoryIcon } from '@/constants/categories';
 
@@ -41,14 +48,18 @@ function CardImage({ card }) {
         }
       />
       {/* 실적 확인이 필요한 카드는 비활성화된 것처럼 뿌옇게 덮습니다. */}
-      {!card.isPerformanceConfirmed && (
+      {card.needsPerformance && (
         <span className="absolute inset-0 bg-[#F1F1F1]/50" />
       )}
     </div>
   );
 }
 
-// 혜택 한 줄 (사용 금액 / 한도 + 진행 바)
+// 한도 단위별 표기 (금액 한도 / 횟수 한도)
+const formatCap = (value, unit) =>
+  unit === 'COUNT' ? `${value.toLocaleString('ko-KR')}회` : formatWon(value);
+
+// 혜택 한 줄 (사용량 / 한도 + 진행 바). 한도가 없는 혜택은 이름만 보여줍니다.
 function BenefitItem({ benefit, onEdit, onEnterLimit }) {
   const { name, used, limit, isLimitEntered = true, isEstimated } = benefit;
   const isExhausted = used >= limit;
@@ -66,59 +77,79 @@ function BenefitItem({ benefit, onEdit, onEnterLimit }) {
       ) : (
         <span className="size-[64px] shrink-0 bg-[repeating-conic-gradient(#e6e6e6_0_25%,#f1f1f1_0_50%)] bg-size-[14px_14px]" />
       )}
+
       <div className="flex min-w-0 flex-1 flex-col gap-[4px]">
-        <p className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#3B426B]">
-          {name}
-        </p>
-        <div className="flex items-center justify-between gap-2">
-          <p className="flex items-center gap-[6px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]">
-            <span>{formatWon(used)}</span>
-            <span className="h-[10px] w-px bg-[#C4C4C4]" />
-            <span>{formatWon(limit)}</span>
+        <div className="flex items-start justify-between gap-2">
+          <p className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] break-keep text-[#3B426B]">
+            {name}
           </p>
-          {!isLimitEntered ? (
-            <div className="flex shrink-0 items-center gap-[4px]">
-              {isEstimated && (
-                <span className="rounded-[27px] bg-[#DBE1FF] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8C9EFF]">
-                  추정
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={onEnterLimit}
-                className="flex items-center gap-[4px] rounded-[27px] bg-[#FAFAFA] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]"
-              >
-                <Plus className="size-[16px] text-[#C4C4C4]" strokeWidth={2} />
-                한도 입력
-              </button>
-            </div>
-          ) : isExhausted ? (
-            <span className="shrink-0 rounded-[27px] bg-[#F8C5C0] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#EE695D]">
-              한도 소진
+          {!usedInRecommendation && (
+            <span className="shrink-0 rounded-[27px] bg-[#EBEBEB] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]">
+              추천 미반영
             </span>
-          ) : (
-            <button
-              type="button"
-              onClick={onEdit}
-              className="flex shrink-0 items-center gap-[4px] rounded-[27px] bg-[#FAFAFA] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]"
-            >
-              <EditIcon
-                className="size-[12px] fill-[#8E8E8E] text-[#8E8E8E]"
-                strokeWidth={1.5}
-              />
-              수정
-            </button>
           )}
         </div>
-        <div className="mt-[4px] h-[8px] w-full overflow-hidden rounded-full bg-[#EBEBEB] shadow-[inset_0_0_4px_0_rgba(0,0,0,0.08)]">
-          <div
-            className={cn(
-              'h-full rounded-full',
-              isExhausted ? 'bg-[#DBE1FF]' : 'bg-[#8C9EFF]',
-            )}
-            style={{ width: `${ratio * 100}%` }}
-          />
-        </div>
+        {cap && (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <p className="flex items-center gap-[6px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]">
+                <span>
+                  {isLimitEntered ? formatCap(used, cap.unit) : '확인 전'}
+                </span>
+                <span className="h-[10px] w-px bg-[#C4C4C4]" />
+                <span>{formatCap(cap.limit, cap.unit)}</span>
+              </p>
+              {!usedInRecommendation ? null : !isLimitEntered ? (
+                <div className="flex shrink-0 items-center gap-[4px]">
+                  <button
+                    type="button"
+                    onClick={onEnterLimit}
+                    className="flex items-center gap-[4px] rounded-[27px] bg-[#FAFAFA] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]"
+                  >
+                    <Plus
+                      className="size-[16px] text-[#C4C4C4]"
+                      strokeWidth={2}
+                    />
+                    한도 입력
+                  </button>
+                </div>
+              ) : isExhausted ? (
+                <span className="shrink-0 rounded-[27px] bg-[#F8C5C0] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#EE695D]">
+                  한도 소진
+                </span>
+              ) : (
+                <div className="flex shrink-0 items-center gap-[4px]">
+                  {/* 결제 확인으로 차감해 추정한 값 (직접 입력한 값은 태그 없음) */}
+                  {isEstimated && (
+                    <span className="rounded-[27px] bg-[#DBE1FF] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8C9EFF]">
+                      추정
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onEdit}
+                    className="flex items-center gap-[4px] rounded-[27px] bg-[#FAFAFA] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]"
+                  >
+                    <EditIcon
+                      className="size-[12px] fill-[#8E8E8E] text-[#8E8E8E]"
+                      strokeWidth={1.5}
+                    />
+                    수정
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="mt-[4px] h-[8px] w-full overflow-hidden rounded-full bg-[#EBEBEB] shadow-[inset_0_0_4px_0_rgba(0,0,0,0.08)]">
+              <div
+                className={cn(
+                  'h-full rounded-full',
+                  isExhausted ? 'bg-[#DBE1FF]' : 'bg-[#8C9EFF]',
+                )}
+                style={{ width: `${ratio * 100}%` }}
+              />
+            </div>
+          </>
+        )}
       </div>
     </li>
   );
@@ -137,6 +168,16 @@ const CARD_TOAST = {
   deleted: {
     title: (card) => `${card.name} 삭제됨`,
     description: '결제 내역은 My에서 확인할 수 있어요.',
+    isNegative: true,
+  },
+  deleteFailed: {
+    title: '카드를 삭제하지 못했어요',
+    description: '잠시 후 다시 시도해 주세요',
+    isNegative: true,
+  },
+  saveFailed: {
+    title: '카드 사용 현황을 저장하지 못했어요',
+    description: '잠시 후 다시 시도해 주세요',
     isNegative: true,
   },
 };
@@ -211,21 +252,41 @@ function LastCardDialog({ onClose, onAddCard }) {
 export default function CardPage() {
   const navigate = useNavigate();
   const scrollRef = useRef(null);
-  // TODO: API 연동 시 서버 데이터로 교체합니다. (실적 등록 결과를 화면에 반영하기 위해 상태로 둡니다.)
-  const [cards, setCards] = useState(MY_CARDS);
+  const { data: cards = [], isPending, isError, refetch } = useOwnedCards();
+  const { mutate: deleteCard, isPending: isDeleting } = useDeleteOwnedCard();
   // 스크롤 위치를 카드 단위로 환산한 값 (0 = 첫 카드가 가운데, 1.5 = 두 번째와 세 번째 카드 사이)
   const [scrollPosition, setScrollPosition] = useState(0);
   const activeIndex = Math.min(
     Math.max(Math.round(scrollPosition), 0),
     cards.length - 1,
   );
-  const activeCard = cards[activeIndex];
+  const activeListCard = cards[activeIndex];
+  // 가운데 카드의 상세(혜택·한도)를 받아 목록 정보에 합칩니다.
+  const {
+    data: detail,
+    isPending: isDetailPending,
+    isError: isDetailError,
+    refetch: refetchDetail,
+  } = useOwnedCardDetail(activeListCard?.id);
+  const activeCard =
+    activeListCard && detail?.id === activeListCard.id
+      ? {
+          ...activeListCard,
+          benefits: detail.benefits,
+          performanceRequirement: detail.performanceRequirement,
+          savedBenefit: detail.savedBenefit,
+          isAssumedTier: detail.isAssumedTier,
+        }
+      : activeListCard;
   const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const closeDeleteDialog = useCallback(
-    () => setIsDeleteDialogOpen(false),
-    [setIsDeleteDialogOpen],
-  );
+  // 서버가 마지막 카드라고 거절한 경우(409) 화면 목록과 상관없이 안내 모달을 띄웁니다.
+  const [isLastCardBlocked, setIsLastCardBlocked] = useState(false);
+  const closeDeleteDialog = useCallback(() => {
+    setIsDeleteDialogOpen(false);
+    setIsLastCardBlocked(false);
+  }, [setIsDeleteDialogOpen, setIsLastCardBlocked]);
+  const showLastCardDialog = cards.length === 1 || isLastCardBlocked;
   // 카드 토스트: { type: 'registered' | 'edited' | 'deleted', card }
   const [toast, setToast] = useState(null);
   const closeToast = useCallback(() => setToast(null), [setToast]);
@@ -233,6 +294,61 @@ export default function CardPage() {
   const [usageInput, setUsageInput] = useState(null);
   // 카드별로 직접 입력한 금액
   const [usageAmounts, setUsageAmounts] = useState({});
+  // 사용 현황 시트를 열 때 저장된 실적·남은 한도를 받아 시트 질문과 선택값을 채웁니다.
+  const { data: cardState, isLoading: isStateLoading } = useOwnedCardState(
+    activeCard?.id,
+    { enabled: usageInput !== null },
+  );
+  const { mutate: saveCardState } = useUpdateOwnedCardState();
+
+  // 시트 입력(선택값 또는 직접 입력한 금액)을 서버에 저장합니다.
+  const handleSaveUsage = (card, input) => {
+    const isAmountInput = Boolean(usageAmounts[card.id]);
+    // 상태를 받지 못했으면 어떤 한도·구간인지 알 수 없어 저장할 수 없습니다.
+    if (!cardState) {
+      setToast({ type: 'saveFailed', card });
+      return;
+    }
+    const body = toOwnedCardStateRequest(cardState, input, { isAmountInput });
+    if (!body) return; // 바뀐 내용이 없습니다.
+
+    saveCardState(
+      { id: card.id, body },
+      {
+        onSuccess: () => {
+          // 저장한 금액은 서버 값으로 대신하므로 직접 입력값을 비웁니다.
+          setUsageAmounts((prev) => {
+            const next = { ...prev };
+            delete next[card.id];
+            return next;
+          });
+          setToast({
+            // 저장 전에 실적이 확인되지 않은 카드면 처음 등록, 이미 확인된 카드면 수정
+            type:
+              cardState.performanceStatus === 'CONFIRMED'
+                ? 'edited'
+                : 'registered',
+            card,
+          });
+        },
+        onError: () => setToast({ type: 'saveFailed', card }),
+      },
+    );
+  };
+
+  // 상태 조회에 실패하면 목록·상세 정보만으로 시트를 엽니다.
+  const usageCard =
+    cardState && activeCard
+      ? {
+          ...activeCard,
+          performanceOptions: cardState.performanceOptions,
+          usageCaps: cardState.usageCaps,
+          // 실적 구간을 바꾸면 한도 질문도 그 구간 기준으로 바뀝니다.
+          usageCapsByAnswer: cardState.usageCapsByAnswer,
+          tierOptions: cardState.tierOptions,
+          initialAnswers: cardState.initialAnswers,
+        }
+      : activeCard;
 
   const handleScroll = () => {
     setScrollPosition(scrollRef.current.scrollLeft / (CARD_WIDTH + CARD_GAP));
@@ -245,12 +361,66 @@ export default function CardPage() {
     });
   };
 
-  // TODO: API 연동 시 카드 삭제를 서버에 반영합니다.
   const handleDeleteCard = () => {
-    setCards((prev) => prev.filter((card) => card.id !== activeCard.id));
-    setIsDeleteDialogOpen(false);
-    setToast({ type: 'deleted', card: activeCard });
+    if (isDeleting) return; // 확인 버튼을 여러 번 눌러도 한 번만 요청합니다.
+    const card = activeCard;
+    deleteCard(card.id, {
+      onSuccess: () => {
+        setIsDeleteDialogOpen(false);
+        setToast({ type: 'deleted', card });
+      },
+      onError: (error) => {
+        if (isLastOwnedCardError(error)) {
+          setIsLastCardBlocked(true);
+          return;
+        }
+        setIsDeleteDialogOpen(false);
+        // 404는 이미 없는 카드라 목록에서 빠지므로 삭제된 것으로 안내합니다.
+        setToast({
+          type: error?.response?.status === 404 ? 'deleted' : 'deleteFailed',
+          card,
+        });
+      },
+    });
   };
+
+  if (isPending || isError || !activeCard) {
+    return (
+      <div className="min-h-dvh bg-[#F1F1F1]">
+        <main className="mx-auto flex min-h-dvh w-full max-w-[402px] flex-col items-center justify-center gap-[12px] px-[18px] pb-[calc(80px+max(28px,env(safe-area-inset-bottom)))] text-center font-['Pretendard'] text-[16px] leading-[140%] text-[#8E8E8E]">
+          {isPending ? (
+            <p>카드를 불러오는 중이에요</p>
+          ) : isError ? (
+            <>
+              <p>카드를 불러오지 못했어요</p>
+              <button
+                type="button"
+                onClick={() => refetch()}
+                className="rounded-[27px] bg-[#121212] px-[16px] py-[8px] text-[#FAFAFA]"
+              >
+                다시 시도
+              </button>
+            </>
+          ) : (
+            <>
+              <p>등록된 카드가 없어요</p>
+              <button
+                type="button"
+                onClick={() =>
+                  navigate('/signup', { state: { initialStep: 2 } })
+                }
+                className="rounded-[27px] bg-[#121212] px-[16px] py-[8px] text-[#FAFAFA]"
+              >
+                카드 추가하기
+              </button>
+            </>
+          )}
+        </main>
+        {toast && <CardToast toast={toast} onClose={closeToast} />}
+        <BottomNav />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-[#F1F1F1]">
@@ -312,18 +482,28 @@ export default function CardPage() {
           })}
         </div>
 
-        <div className="mt-[16px] flex justify-center">
-          {activeCard.isPerformanceConfirmed ? (
+        {/* statusChip이 null(NEEDS_CHECK 등)이면 칩을 표시하지 않습니다. */}
+        <div className="mt-[16px] flex min-h-[34px] justify-center">
+          {activeCard.statusChip === 'ALL_CONFIRMED' && (
             <span className="rounded-[27px] bg-[#DBE1FF] px-[12px] py-[6px] font-['Pretendard'] text-[16px] leading-[140%] font-[400] text-[#8C9EFF]">
               {activeCard.performanceMonth}월 카드 실적 확인 완료
             </span>
-          ) : (
-            // TODO: 실적 확인 화면이 정해지면 연결합니다.
-            <span className="flex items-center gap-[6px] rounded-[27px] bg-[#F8C5C0] px-[12px] py-[6px] font-['Pretendard'] text-[16px] leading-[140%] font-[400] text-[#EE695D]">
+          )}
+          {activeCard.statusChip === 'NEEDS_PERFORMANCE' && (
+            <button
+              type="button"
+              onClick={() => setUsageInput('sheet')}
+              className="flex items-center gap-[6px] rounded-[27px] bg-[#F8C5C0] px-[12px] py-[6px] font-['Pretendard'] text-[16px] leading-[140%] font-[400] text-[#EE695D]"
+            >
               <span className="flex size-[18px] items-center justify-center rounded-full bg-[#D53D30] text-[12px] leading-none font-bold text-[#FAFAFA]">
                 !
               </span>
               {activeCard.performanceMonth}월 카드 실적 확인 필요
+            </button>
+          )}
+          {activeCard.statusChip === 'LIMIT_EXHAUSTED' && (
+            <span className="rounded-[27px] bg-[#F8C5C0] px-[12px] py-[6px] font-['Pretendard'] text-[16px] leading-[140%] font-[400] text-[#EE695D]">
+              한도를 다 쓴 혜택이 있어요
             </span>
           )}
         </div>
@@ -337,18 +517,45 @@ export default function CardPage() {
             <br />
             카똑에서 확인된 결제 내역만 입력돼요.
           </p>
+          {/* 실적 미확인 카드의 한도는 가장 낮은 혜택 구간을 가정한 값입니다. */}
+          {activeCard.isAssumedTier && (
+            <p className="mt-[8px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] break-keep text-[#8C9EFF]">
+              실적 확인 전이라 가장 낮은 실적 구간 기준 한도로 보여드려요.
+            </p>
+          )}
 
-          <ul className="mt-[24px] flex flex-col gap-[16px]">
-            {activeCard.benefits.map((benefit) => (
-              <BenefitItem
-                key={benefit.id}
-                benefit={benefit}
-                onEdit={() => setUsageInput('sheet')}
-                // TODO: 한도 입력 화면이 정해지면 연결합니다.
-                onEnterLimit={() => {}}
-              />
-            ))}
-          </ul>
+          {isDetailPending ? (
+            <p className="mt-[24px] font-['Pretendard'] text-[16px] leading-[140%] font-[400] text-[#8E8E8E]">
+              혜택을 불러오는 중이에요
+            </p>
+          ) : isDetailError ? (
+            <div className="mt-[24px] flex items-center justify-between gap-2 font-['Pretendard'] text-[16px] leading-[140%] font-[400] text-[#8E8E8E]">
+              <p>혜택을 불러오지 못했어요</p>
+              <button
+                type="button"
+                onClick={() => refetchDetail()}
+                className="shrink-0 rounded-[27px] bg-[#121212] px-[12px] py-[4px] text-[14px] text-[#FAFAFA]"
+              >
+                다시 시도
+              </button>
+            </div>
+          ) : activeCard.benefits.length === 0 ? (
+            <p className="mt-[24px] font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#3B426B]">
+              적용할 수 있는 혜택이 없어요
+            </p>
+          ) : (
+            <ul className="mt-[24px] flex flex-col gap-[16px]">
+              {activeCard.benefits.map((benefit) => (
+                <BenefitItem
+                  key={benefit.id}
+                  benefit={benefit}
+                  onEdit={() => setUsageInput('sheet')}
+                  // 남은 한도는 사용 현황 시트에서 입력합니다.
+                  onEnterLimit={() => setUsageInput('sheet')}
+                />
+              ))}
+            </ul>
+          )}
         </section>
       </main>
 
@@ -372,14 +579,14 @@ export default function CardPage() {
         />
       )}
 
-      {isDeleteDialogOpen && cards.length === 1 && (
+      {isDeleteDialogOpen && showLastCardDialog && (
         <LastCardDialog
           onClose={closeDeleteDialog}
           // 하단 + 버튼과 같은 온보딩의 카드사 선택 단계로 이동합니다.
           onAddCard={() => navigate('/signup', { state: { initialStep: 2 } })}
         />
       )}
-      {isDeleteDialogOpen && cards.length > 1 && (
+      {isDeleteDialogOpen && !showLastCardDialog && (
         <DeletePaymentDialog
           description={
             <>
@@ -393,34 +600,24 @@ export default function CardPage() {
         />
       )}
 
-      {usageInput === 'sheet' && (
+      {usageInput === 'sheet' && !isStateLoading && (
         <CardUsageSheet
-          card={activeCard}
+          card={usageCard}
           submitLabel="저장하기"
           onClose={() => setUsageInput(null)}
           onDirectInput={() => setUsageInput('amount')}
           amounts={usageAmounts[activeCard.id]}
-          // TODO: API 연동 시 입력한 사용 현황을 저장하고 혜택 현황을 다시 받아옵니다.
-          onSubmit={() => {
-            setCards((prev) =>
-              prev.map((card) =>
-                card.id === activeCard.id
-                  ? { ...card, isPerformanceConfirmed: true }
-                  : card,
-              ),
-            );
-            setToast({
-              // 저장 전에 실적이 확인되지 않은 카드면 처음 등록, 이미 확인된 카드면 수정
-              type: activeCard.isPerformanceConfirmed ? 'edited' : 'registered',
-              card: activeCard,
-            });
-          }}
+          // 저장에 성공하면 목록·상세·상태를 다시 받아 혜택 현황을 갱신합니다.
+          onSubmit={(input) => handleSaveUsage(activeCard, input)}
         />
       )}
       {usageInput === 'amount' && (
         <CardUsageAmountScreen
-          card={activeCard}
-          initialAmounts={usageAmounts[activeCard.id]}
+          card={usageCard}
+          // 이번에 입력한 금액이 없으면 저장된 남은 한도로 채웁니다.
+          initialAmounts={
+            usageAmounts[activeCard.id] ?? cardState?.initialAmounts
+          }
           onBack={() => setUsageInput('sheet')}
           // 입력을 마치면 바텀시트로 돌아가 입력한 금액을 보여줍니다.
           onSubmit={(amounts) => {
