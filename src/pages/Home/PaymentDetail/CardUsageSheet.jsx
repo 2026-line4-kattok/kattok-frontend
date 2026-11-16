@@ -39,19 +39,40 @@ function OptionGroup({ name, question, options, value, onChange }) {
   );
 }
 
-// 금액을 직접 입력한 뒤에는 선택지 대신 입력한 금액을 보여줍니다.
-function AmountField({ question, label, amount }) {
+// 1억원 미만까지만 입력받습니다. (금액 입력 화면과 같은 기준)
+const MAX_AMOUNT = 99_999_999;
+
+// 금액을 직접 입력한 뒤에는 선택지 대신 입력한 금액을 텍스트 필드로 보여주고, 바로 고칠 수 있습니다.
+function AmountField({ name, question, label, amount, unit = '원', onChange }) {
+  const inputId = `card-usage-amount-${name}`;
   return (
     <div className="flex flex-col gap-[12px]">
-      <p className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#6E6E6E]">
+      <label
+        htmlFor={inputId}
+        className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#6E6E6E]"
+      >
         {question}
-      </p>
-      <div className="flex h-[48px] items-center justify-between gap-[12px] rounded-[8px] bg-[#F1F1F1] px-[16px]">
+      </label>
+      <div className="flex h-[48px] items-center justify-between gap-[12px] rounded-[8px] bg-[#F1F1F1] px-[16px] focus-within:outline-2 focus-within:outline-[#8C9EFF]">
         <span className="shrink-0 font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]">
           {label}
         </span>
-        <span className="truncate font-['Pretendard'] text-[20px] leading-[120%] font-[600] text-[#121212]">
-          {(amount ?? 0).toLocaleString('ko-KR')}원
+        <span className="flex min-w-0 items-center font-['Pretendard'] text-[20px] leading-[120%] font-[600] text-[#121212]">
+          <input
+            id={inputId}
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            // 0이면 비워 두고 placeholder로 0을 보여줘 바로 숫자를 칠 수 있게 합니다.
+            value={amount ? amount.toLocaleString('ko-KR') : ''}
+            placeholder="0"
+            onChange={(e) => {
+              const digits = e.target.value.replace(/\D/g, '');
+              onChange(Math.min(Number(digits || 0), MAX_AMOUNT));
+            }}
+            className="w-full min-w-0 bg-transparent text-right outline-none placeholder:text-[#121212]"
+          />
+          <span className="shrink-0">{unit}</span>
         </span>
       </div>
     </div>
@@ -75,22 +96,44 @@ export default function CardUsageSheet({
   const categories = card.benefitCategories ?? [];
   const requirement = card.performanceRequirement;
 
+  // card.performanceOptions·usageCaps(3-3 상태 조회)가 있으면 서버 데이터로 질문을 만들고,
+  // 없으면 performanceRequirement·benefitCategories로 만듭니다.
   const questions = [
-    ...(requirement
+    ...(card.performanceOptions
       ? [
           {
             name: 'performance',
             question: '지난달 이 카드로 얼마나 쓰셨나요?',
             amountLabel: '결제 금액',
-            options: [
-              { value: 'under', label: `${formatManWon(requirement)} 미만` },
-              { value: 'over', label: `${formatManWon(requirement)} 이상` },
-              { value: 'unknown', label: '모르겠어요' },
-            ],
+            options: card.performanceOptions,
           },
         ]
-      : []),
-    ...categories.map((category) => ({
+      : requirement
+        ? [
+            {
+              name: 'performance',
+              question: '지난달 이 카드로 얼마나 쓰셨나요?',
+              amountLabel: '결제 금액',
+              options: [
+                { value: 'under', label: `${formatManWon(requirement)} 미만` },
+                { value: 'over', label: `${formatManWon(requirement)} 이상` },
+                { value: 'unknown', label: '모르겠어요' },
+              ],
+            },
+          ]
+        : []),
+    ...(card.usageCaps ?? []).map((cap) => ({
+      name: cap.name,
+      question: `이번 달 ${cap.description}, 얼마나 썼나요?`,
+      amountLabel: cap.unit === 'COUNT' ? '남은 횟수' : '잔여 한도',
+      unit: cap.unit === 'COUNT' ? '회' : '원',
+      options: [
+        { value: 'used', label: '다 썼어요' },
+        { value: 'unused', label: '안 썼어요' },
+        { value: 'unknown', label: '모르겠어요' },
+      ],
+    })),
+    ...(card.usageCaps ? [] : categories).map((category) => ({
       name: `remaining-${category}`,
       question: `이번 달 ${category} 할인 얼마나 받았나요?`,
       amountLabel: '잔여 한도',
@@ -101,10 +144,15 @@ export default function CardUsageSheet({
       ],
     })),
   ];
-  // 시안처럼 각 질문의 첫 번째 선택지가 선택된 상태로 시작합니다.
+  // 직접 입력한 금액을 시트에서 다시 고칠 수 있도록 복사해 둡니다.
+  const [editedAmounts, setEditedAmounts] = useState(amounts);
+  // 저장된 값(card.initialAnswers)이 있으면 그 값으로, 없으면 시안처럼 첫 번째 선택지로 시작합니다.
   const [answers, setAnswers] = useState(() =>
     Object.fromEntries(
-      questions.map(({ name, options }) => [name, options[0].value]),
+      questions.map(({ name, options }) => [
+        name,
+        card.initialAnswers?.[name] ?? options[0].value,
+      ]),
     ),
   );
 
@@ -125,7 +173,7 @@ export default function CardUsageSheet({
   };
 
   const handleSubmit = () => {
-    onSubmit?.(amounts ?? answers);
+    onSubmit?.(editedAmounts ?? answers);
     close();
   };
 
@@ -184,13 +232,18 @@ export default function CardUsageSheet({
         </div>
 
         <div className="mt-[32px] flex flex-col gap-[24px]">
-          {questions.map(({ name, question, amountLabel, options }) =>
+          {questions.map(({ name, question, amountLabel, unit, options }) =>
             amounts ? (
               <AmountField
                 key={name}
+                name={name}
                 question={question}
                 label={amountLabel}
-                amount={amounts[name]}
+                unit={unit}
+                amount={editedAmounts[name]}
+                onChange={(value) =>
+                  setEditedAmounts((prev) => ({ ...prev, [name]: value }))
+                }
               />
             ) : (
               <OptionGroup

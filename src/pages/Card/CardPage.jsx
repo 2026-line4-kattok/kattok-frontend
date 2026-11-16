@@ -1,7 +1,6 @@
 import { Check, Ellipsis, Plus, X } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import Toast from '@/components/common/Toast';
 import { DeletePaymentDialog, Modal } from '@/pages/Mypage/MypageRecord';
 import BottomNav from '@/components/layout/BottomNav';
@@ -9,8 +8,14 @@ import { cn } from '@/utils/cn';
 import CardUsageAmountScreen from '@/pages/Home/PaymentDetail/CardUsageAmountScreen';
 import CardUsageSheet from '@/pages/Home/PaymentDetail/CardUsageSheet';
 import CardMoreSheet from './CardMoreSheet';
-import useOwnedCards, { OWNED_CARDS_QUERY_KEY } from '@/hooks/useOwnedCards';
+import useOwnedCards from '@/hooks/useOwnedCards';
 import useOwnedCardDetail from '@/hooks/useOwnedCardDetail';
+import useOwnedCardState from '@/hooks/useOwnedCardState';
+import useUpdateOwnedCardState from '@/hooks/useUpdateOwnedCardState';
+import useDeleteOwnedCard, {
+  isLastOwnedCardError,
+} from '@/hooks/useDeleteOwnedCard';
+import { toOwnedCardStateRequest } from './ownedCardMapper';
 import { EditIcon } from '@/assets/icons/icons';
 
 // 캐러셀 카드 크기 (px) — 스크롤 위치로 현재 카드를 계산할 때 사용합니다.
@@ -85,17 +90,14 @@ function BenefitItem({ benefit, onEdit, onEnterLimit }) {
           <>
             <div className="flex items-center justify-between gap-2">
               <p className="flex items-center gap-[6px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]">
-                <span>{isLimitEntered ? formatCap(used, cap.unit) : '-'}</span>
+                <span>
+                  {isLimitEntered ? formatCap(used, cap.unit) : '확인 전'}
+                </span>
                 <span className="h-[10px] w-px bg-[#C4C4C4]" />
                 <span>{formatCap(cap.limit, cap.unit)}</span>
               </p>
               {!usedInRecommendation ? null : !isLimitEntered ? (
                 <div className="flex shrink-0 items-center gap-[4px]">
-                  {isEstimated && (
-                    <span className="rounded-[27px] bg-[#DBE1FF] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8C9EFF]">
-                      추정
-                    </span>
-                  )}
                   <button
                     type="button"
                     onClick={onEnterLimit}
@@ -113,17 +115,25 @@ function BenefitItem({ benefit, onEdit, onEnterLimit }) {
                   한도 소진
                 </span>
               ) : (
-                <button
-                  type="button"
-                  onClick={onEdit}
-                  className="flex shrink-0 items-center gap-[4px] rounded-[27px] bg-[#FAFAFA] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]"
-                >
-                  <EditIcon
-                    className="size-[12px] fill-[#8E8E8E] text-[#8E8E8E]"
-                    strokeWidth={1.5}
-                  />
-                  수정
-                </button>
+                <div className="flex shrink-0 items-center gap-[4px]">
+                  {/* 결제 확인으로 차감해 추정한 값 (직접 입력한 값은 태그 없음) */}
+                  {isEstimated && (
+                    <span className="rounded-[27px] bg-[#DBE1FF] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8C9EFF]">
+                      추정
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onEdit}
+                    className="flex items-center gap-[4px] rounded-[27px] bg-[#FAFAFA] px-[8px] py-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]"
+                  >
+                    <EditIcon
+                      className="size-[12px] fill-[#8E8E8E] text-[#8E8E8E]"
+                      strokeWidth={1.5}
+                    />
+                    수정
+                  </button>
+                </div>
               )}
             </div>
             <div className="mt-[4px] h-[8px] w-full overflow-hidden rounded-full bg-[#EBEBEB] shadow-[inset_0_0_4px_0_rgba(0,0,0,0.08)]">
@@ -155,6 +165,16 @@ const CARD_TOAST = {
   deleted: {
     title: (card) => `${card.name} 삭제됨`,
     description: '결제 내역은 My에서 확인할 수 있어요.',
+    isNegative: true,
+  },
+  deleteFailed: {
+    title: '카드를 삭제하지 못했어요',
+    description: '잠시 후 다시 시도해 주세요',
+    isNegative: true,
+  },
+  saveFailed: {
+    title: '카드 사용 현황을 저장하지 못했어요',
+    description: '잠시 후 다시 시도해 주세요',
     isNegative: true,
   },
 };
@@ -229,13 +249,8 @@ function LastCardDialog({ onClose, onAddCard }) {
 export default function CardPage() {
   const navigate = useNavigate();
   const scrollRef = useRef(null);
-  const queryClient = useQueryClient();
   const { data: cards = [], isPending, isError, refetch } = useOwnedCards();
-  // 서버 응답(캐시)을 직접 고칩니다. 수정·삭제 API가 연동되면 요청 성공 후 invalidate로 바꿉니다.
-  const updateOwnedCards = (updater) =>
-    queryClient.setQueryData(OWNED_CARDS_QUERY_KEY, (prev = []) =>
-      updater(prev),
-    );
+  const { mutate: deleteCard, isPending: isDeleting } = useDeleteOwnedCard();
   // 스크롤 위치를 카드 단위로 환산한 값 (0 = 첫 카드가 가운데, 1.5 = 두 번째와 세 번째 카드 사이)
   const [scrollPosition, setScrollPosition] = useState(0);
   const activeIndex = Math.min(
@@ -257,14 +272,18 @@ export default function CardPage() {
           benefits: detail.benefits,
           performanceRequirement: detail.performanceRequirement,
           savedBenefit: detail.savedBenefit,
+          isAssumedTier: detail.isAssumedTier,
         }
       : activeListCard;
   const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const closeDeleteDialog = useCallback(
-    () => setIsDeleteDialogOpen(false),
-    [setIsDeleteDialogOpen],
-  );
+  // 서버가 마지막 카드라고 거절한 경우(409) 화면 목록과 상관없이 안내 모달을 띄웁니다.
+  const [isLastCardBlocked, setIsLastCardBlocked] = useState(false);
+  const closeDeleteDialog = useCallback(() => {
+    setIsDeleteDialogOpen(false);
+    setIsLastCardBlocked(false);
+  }, [setIsDeleteDialogOpen, setIsLastCardBlocked]);
+  const showLastCardDialog = cards.length === 1 || isLastCardBlocked;
   // 카드 토스트: { type: 'registered' | 'edited' | 'deleted', card }
   const [toast, setToast] = useState(null);
   const closeToast = useCallback(() => setToast(null), [setToast]);
@@ -272,6 +291,58 @@ export default function CardPage() {
   const [usageInput, setUsageInput] = useState(null);
   // 카드별로 직접 입력한 금액
   const [usageAmounts, setUsageAmounts] = useState({});
+  // 사용 현황 시트를 열 때 저장된 실적·남은 한도를 받아 시트 질문과 선택값을 채웁니다.
+  const { data: cardState, isLoading: isStateLoading } = useOwnedCardState(
+    activeCard?.id,
+    { enabled: usageInput !== null },
+  );
+  const { mutate: saveCardState } = useUpdateOwnedCardState();
+
+  // 시트 입력(선택값 또는 직접 입력한 금액)을 서버에 저장합니다.
+  const handleSaveUsage = (card, input) => {
+    const isAmountInput = Boolean(usageAmounts[card.id]);
+    // 상태를 받지 못했으면 어떤 한도·구간인지 알 수 없어 저장할 수 없습니다.
+    if (!cardState) {
+      setToast({ type: 'saveFailed', card });
+      return;
+    }
+    const body = toOwnedCardStateRequest(cardState, input, { isAmountInput });
+    if (!body) return; // 바뀐 내용이 없습니다.
+
+    saveCardState(
+      { id: card.id, body },
+      {
+        onSuccess: () => {
+          // 저장한 금액은 서버 값으로 대신하므로 직접 입력값을 비웁니다.
+          setUsageAmounts((prev) => {
+            const next = { ...prev };
+            delete next[card.id];
+            return next;
+          });
+          setToast({
+            // 저장 전에 실적이 확인되지 않은 카드면 처음 등록, 이미 확인된 카드면 수정
+            type:
+              cardState.performanceStatus === 'CONFIRMED'
+                ? 'edited'
+                : 'registered',
+            card,
+          });
+        },
+        onError: () => setToast({ type: 'saveFailed', card }),
+      },
+    );
+  };
+
+  // 상태 조회에 실패하면 목록·상세 정보만으로 시트를 엽니다.
+  const usageCard =
+    cardState && activeCard
+      ? {
+          ...activeCard,
+          performanceOptions: cardState.performanceOptions,
+          usageCaps: cardState.usageCaps,
+          initialAnswers: cardState.initialAnswers,
+        }
+      : activeCard;
 
   const handleScroll = () => {
     setScrollPosition(scrollRef.current.scrollLeft / (CARD_WIDTH + CARD_GAP));
@@ -284,13 +355,27 @@ export default function CardPage() {
     });
   };
 
-  // TODO: 카드 삭제 API 연동 시 서버에 반영합니다.
   const handleDeleteCard = () => {
-    updateOwnedCards((prev) =>
-      prev.filter((card) => card.id !== activeCard.id),
-    );
-    setIsDeleteDialogOpen(false);
-    setToast({ type: 'deleted', card: activeCard });
+    if (isDeleting) return; // 확인 버튼을 여러 번 눌러도 한 번만 요청합니다.
+    const card = activeCard;
+    deleteCard(card.id, {
+      onSuccess: () => {
+        setIsDeleteDialogOpen(false);
+        setToast({ type: 'deleted', card });
+      },
+      onError: (error) => {
+        if (isLastOwnedCardError(error)) {
+          setIsLastCardBlocked(true);
+          return;
+        }
+        setIsDeleteDialogOpen(false);
+        // 404는 이미 없는 카드라 목록에서 빠지므로 삭제된 것으로 안내합니다.
+        setToast({
+          type: error?.response?.status === 404 ? 'deleted' : 'deleteFailed',
+          card,
+        });
+      },
+    });
   };
 
   if (isPending || isError || !activeCard) {
@@ -426,6 +511,12 @@ export default function CardPage() {
             <br />
             카똑에서 확인된 결제 내역만 입력돼요.
           </p>
+          {/* 실적 미확인 카드의 한도는 가장 낮은 혜택 구간을 가정한 값입니다. */}
+          {activeCard.isAssumedTier && (
+            <p className="mt-[8px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] break-keep text-[#8C9EFF]">
+              실적 확인 전이라 가장 낮은 실적 구간 기준 한도로 보여드려요.
+            </p>
+          )}
 
           {isDetailPending ? (
             <p className="mt-[24px] font-['Pretendard'] text-[16px] leading-[140%] font-[400] text-[#8E8E8E]">
@@ -453,8 +544,8 @@ export default function CardPage() {
                   key={benefit.id}
                   benefit={benefit}
                   onEdit={() => setUsageInput('sheet')}
-                  // TODO: 한도 입력 화면이 정해지면 연결합니다.
-                  onEnterLimit={() => {}}
+                  // 남은 한도는 사용 현황 시트에서 입력합니다.
+                  onEnterLimit={() => setUsageInput('sheet')}
                 />
               ))}
             </ul>
@@ -482,14 +573,14 @@ export default function CardPage() {
         />
       )}
 
-      {isDeleteDialogOpen && cards.length === 1 && (
+      {isDeleteDialogOpen && showLastCardDialog && (
         <LastCardDialog
           onClose={closeDeleteDialog}
           // 하단 + 버튼과 같은 온보딩의 카드사 선택 단계로 이동합니다.
           onAddCard={() => navigate('/signup', { state: { initialStep: 2 } })}
         />
       )}
-      {isDeleteDialogOpen && cards.length > 1 && (
+      {isDeleteDialogOpen && !showLastCardDialog && (
         <DeletePaymentDialog
           description={
             <>
@@ -503,45 +594,24 @@ export default function CardPage() {
         />
       )}
 
-      {usageInput === 'sheet' && (
+      {usageInput === 'sheet' && !isStateLoading && (
         <CardUsageSheet
-          card={activeCard}
+          card={usageCard}
           submitLabel="저장하기"
           onClose={() => setUsageInput(null)}
           onDirectInput={() => setUsageInput('amount')}
           amounts={usageAmounts[activeCard.id]}
-          // TODO: API 연동 시 입력한 사용 현황을 저장하고 혜택 현황을 다시 받아옵니다.
-          onSubmit={() => {
-            // TODO: 실적 수정 API 연동 후에는 응답 성공 시 invalidateQueries로 목록을 다시 받습니다.
-            updateOwnedCards((prev) =>
-              prev.map((card) =>
-                card.id === activeCard.id
-                  ? {
-                      ...card,
-                      performanceStatus: 'CONFIRMED',
-                      statusChip:
-                        card.statusChip === 'NEEDS_PERFORMANCE'
-                          ? 'ALL_CONFIRMED'
-                          : card.statusChip,
-                    }
-                  : card,
-              ),
-            );
-            setToast({
-              // 저장 전에 실적이 확인되지 않은 카드면 처음 등록, 이미 확인된 카드면 수정
-              type:
-                activeCard.performanceStatus === 'CONFIRMED'
-                  ? 'edited'
-                  : 'registered',
-              card: activeCard,
-            });
-          }}
+          // 저장에 성공하면 목록·상세·상태를 다시 받아 혜택 현황을 갱신합니다.
+          onSubmit={(input) => handleSaveUsage(activeCard, input)}
         />
       )}
       {usageInput === 'amount' && (
         <CardUsageAmountScreen
-          card={activeCard}
-          initialAmounts={usageAmounts[activeCard.id]}
+          card={usageCard}
+          // 이번에 입력한 금액이 없으면 저장된 남은 한도로 채웁니다.
+          initialAmounts={
+            usageAmounts[activeCard.id] ?? cardState?.initialAmounts
+          }
           onBack={() => setUsageInput('sheet')}
           // 입력을 마치면 바텀시트로 돌아가 입력한 금액을 보여줍니다.
           onSubmit={(amounts) => {
