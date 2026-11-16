@@ -1,3 +1,10 @@
+import cafe from '@/assets/mypage/icon/cafe.png';
+import pharmacy from '@/assets/mypage/icon/pharmacy.png';
+import mart from '@/assets/mypage/icon/mart.png';
+import taxi from '@/assets/mypage/icon/taxi.png';
+import convenience from '@/assets/mypage/icon/convenience.png';
+import restaurant from '@/assets/mypage/icon/restaurant.png';
+import shopping from '@/assets/mypage/icon/shopping.png';
 function Calculation() {
   return (
     <article className="[&_h3]:mb-[18px] [&_h3]:text-[18px] [&_h3]:font-semibold [&_h3]:text-[#4B4B4B] [&>h2]:mt-6 [&>h2]:mb-2 [&>h2]:text-[24px] [&>h2]:font-semibold [&>h2]:text-[#121212] [&>p]:text-[16px] [&>p]:text-[#4B4B4B] [&>section]:mt-6">
@@ -11,20 +18,24 @@ function Calculation() {
         <h3 className="mt-2">1. 먼저 오늘의 결제를 계산해요</h3>
         <div className="flex flex-wrap gap-2.5 px-[14px]">
           {[
-            '카페',
-            '약국',
-            '마트',
-            '택시',
-            '편의점',
-            '음식점',
-            '온라인 쇼핑',
-          ].map((tag) => (
+            { label: '카페', icon: cafe },
+            { label: '약국', icon: pharmacy },
+            { label: '마트', icon: mart },
+            { label: '택시', icon: taxi },
+            { label: '편의점', icon: convenience },
+            { label: '음식점', icon: restaurant },
+            { label: '온라인 쇼핑', icon: shopping },
+          ].map(({ label, icon }) => (
             <span
-              key={tag}
+              key={label}
               className="font-regular inline-flex items-center justify-center gap-1 rounded-[27px] bg-[#E1E1E1] px-3 py-[10px] text-center text-[16px] leading-[1.4] text-[#4B4B4B]"
             >
-              <div className="size-[18px] bg-[#FFFFFF]"></div>
-              <span>{tag}</span>
+              <img
+                src={icon}
+                alt=""
+                className="size-[18px] shrink-0 object-contain"
+              />
+              <span>{label}</span>
             </span>
           ))}
         </div>
