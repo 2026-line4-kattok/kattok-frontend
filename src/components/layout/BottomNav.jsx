@@ -1,12 +1,12 @@
 import { Plus } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/utils/cn';
-import { HomeIcon, PayIcon, UserIcon, SearchIcon } from '@/assets/icons/icons';
+import { HomeIcon, CardIcon, UserIcon, SearchIcon } from '@/assets/icons/icons';
 
 // path가 없는 탭은 이동할 화면이 정해지기 전까지 비활성화합니다.
 const TABS = [
   { label: 'Home', icon: HomeIcon, path: '/' },
-  { label: 'Card', icon: PayIcon, path: '/card' },
+  { label: 'Card', icon: CardIcon, path: '/card' },
   { label: 'My', icon: UserIcon, path: '/mypage' },
 ];
 

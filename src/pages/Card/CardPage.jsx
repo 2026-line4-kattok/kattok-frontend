@@ -10,6 +10,7 @@ import CardUsageSheet from '@/pages/Home/PaymentDetail/CardUsageSheet';
 import CardMoreSheet from './CardMoreSheet';
 import { MY_CARDS } from './cardData';
 import { EditIcon } from '@/assets/icons/icons';
+import { getCategoryIcon } from '@/constants/categories';
 
 // 캐러셀 카드 크기 (px) — 스크롤 위치로 현재 카드를 계산할 때 사용합니다.
 const CARD_WIDTH = 216;
@@ -52,10 +53,19 @@ function BenefitItem({ benefit, onEdit, onEnterLimit }) {
   const { name, used, limit, isLimitEntered = true, isEstimated } = benefit;
   const isExhausted = used >= limit;
   const ratio = limit > 0 ? Math.min(used / limit, 1) : 0;
+  const categoryIcon = getCategoryIcon(name);
 
   return (
     <li className="flex items-center gap-[24px]">
-      <span className="size-[64px] shrink-0 bg-[repeating-conic-gradient(#e6e6e6_0_25%,#f1f1f1_0_50%)] bg-size-[14px_14px]" />
+      {categoryIcon ? (
+        <img
+          src={categoryIcon}
+          alt=""
+          className="size-[64px] shrink-0 object-contain"
+        />
+      ) : (
+        <span className="size-[64px] shrink-0 bg-[repeating-conic-gradient(#e6e6e6_0_25%,#f1f1f1_0_50%)] bg-size-[14px_14px]" />
+      )}
       <div className="flex min-w-0 flex-1 flex-col gap-[4px]">
         <p className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#3B426B]">
           {name}

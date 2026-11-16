@@ -5,17 +5,7 @@ import mrLifeImage from '@/assets/card/신한카드 Mr Life.png';
 import hanaKPassCheckImage from '@/assets/card/하나 K패스 체크카드.png';
 import Toast from '@/components/common/Toast';
 import BottomNav from '@/components/layout/BottomNav';
-
-const CATEGORIES = [
-  '카페',
-  '편의점',
-  '음식점',
-  '마트',
-  '온라인 쇼핑',
-  '약국',
-  '택시',
-  '백화점',
-];
+import { CATEGORIES, getCategoryIcon } from '@/constants/categories';
 
 // TODO: API 연동 시 서버 데이터로 교체합니다.
 const MONTHLY_BENEFIT = 12400;
@@ -44,6 +34,7 @@ const PENDING_PAYMENT = {
   id: 1,
   cardName: 'KB 국민 노리2',
   place: '스타벅스',
+  category: '카페',
   amount: 30000,
 };
 
@@ -167,8 +158,9 @@ export default function HomePage() {
   const [pendingPayment, setPendingPayment] = useState(
     recordedPayment?.id === PENDING_PAYMENT.id ? null : PENDING_PAYMENT,
   );
-  const [isRejectToastOpen, setIsRejectToastOpen] = useState(false);
-  const closeRejectToast = useCallback(() => setIsRejectToastOpen(false), []);
+  // 결제 기록을 거부한 결제건 (토스트에 업종 아이콘을 보여주기 위해 보관)
+  const [rejectedPayment, setRejectedPayment] = useState(null);
+  const closeRejectToast = useCallback(() => setRejectedPayment(null), []);
   const closeRecordToast = useCallback(() => setRecordedPayment(null), []);
 
   // 새로고침·뒤로 가기 시 금액이 다시 더해지지 않도록 전달받은 state를 비웁니다.
@@ -180,8 +172,8 @@ export default function HomePage() {
 
   const handleRejectPayment = () => {
     // TODO: API 연동 시 결제 거부 여부를 서버에 기록합니다.
+    setRejectedPayment(pendingPayment);
     setPendingPayment(null);
-    setIsRejectToastOpen(true);
   };
 
   return (
@@ -225,7 +217,7 @@ export default function HomePage() {
             업종으로 고르기
           </h2>
           <ul className="grid min-h-[200px] w-full grid-cols-4 content-start justify-items-center gap-y-1 rounded-[8px] bg-[#FAFAFA] px-3 pt-2 pb-3 shadow-[0_0_12px_2px_rgba(0,0,0,0.02)] max-phone-xs:px-1">
-            {CATEGORIES.map((label) => (
+            {CATEGORIES.map(({ label, icon }) => (
               <li key={label}>
                 <button
                   type="button"
@@ -234,7 +226,11 @@ export default function HomePage() {
                   }
                   className="flex w-full flex-col items-center gap-y-[4px]"
                 >
-                  <span className="size-[64px] bg-[repeating-conic-gradient(#efefef_0_25%,#fafafa_0_50%)] bg-size-[16px_16px] max-phone-xs:size-[52px]" />
+                  <img
+                    src={icon}
+                    alt=""
+                    className="size-[64px] object-contain max-phone-xs:size-[52px]"
+                  />
                   <span className="text-center font-['Pretendard'] text-[14px] leading-[140%] font-normal break-keep text-[#8E8E8E] max-phone-s:text-[13px] max-phone-xs:text-[12px]">
                     {label}
                   </span>
@@ -273,8 +269,9 @@ export default function HomePage() {
         </section>
       </main>
 
-      {isRejectToastOpen && (
+      {rejectedPayment && (
         <Toast
+          categoryIcon={getCategoryIcon(rejectedPayment.category)}
           icon={
             <span className="flex size-[24px] items-center justify-center rounded-full bg-[#E46A5E]">
               <X className="size-[18px] text-[#FAFAFA]" strokeWidth={2} />
@@ -290,6 +287,7 @@ export default function HomePage() {
 
       {recordedPayment && (
         <Toast
+          categoryIcon={getCategoryIcon(recordedPayment.category)}
           icon={
             <span className="flex size-[24px] items-center justify-center rounded-full bg-[#8C9EFF]">
               <Check className="size-[18px] text-[#FAFAFA]" strokeWidth={2} />
