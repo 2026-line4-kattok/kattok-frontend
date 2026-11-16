@@ -17,6 +17,7 @@ import useDeleteOwnedCard, {
 } from '@/hooks/useDeleteOwnedCard';
 import { toOwnedCardStateRequest } from './ownedCardMapper';
 import { EditIcon } from '@/assets/icons/icons';
+import { getCategoryIcon } from '@/constants/categories';
 
 // 캐러셀 카드 크기 (px) — 스크롤 위치로 현재 카드를 계산할 때 사용합니다.
 const CARD_WIDTH = 216;
@@ -60,21 +61,23 @@ const formatCap = (value, unit) =>
 
 // 혜택 한 줄 (사용량 / 한도 + 진행 바). 한도가 없는 혜택은 이름만 보여줍니다.
 function BenefitItem({ benefit, onEdit, onEnterLimit }) {
-  const { name, cap, usedInRecommendation, isLimitEntered, isEstimated } =
-    benefit;
-  const used = cap?.used ?? 0;
-  const isExhausted = Boolean(cap) && isLimitEntered && used >= cap.limit;
-  const ratio = cap && cap.limit > 0 ? Math.min(used / cap.limit, 1) : 0;
+  const { name, used, limit, isLimitEntered = true, isEstimated } = benefit;
+  const isExhausted = used >= limit;
+  const ratio = limit > 0 ? Math.min(used / limit, 1) : 0;
+  const categoryIcon = getCategoryIcon(name);
 
   return (
-    <li
-      className={cn(
-        'flex items-center gap-[24px]',
-        // 추천 계산에 쓰이지 않는 혜택은 회색으로 흐리게 표시합니다.
-        !usedInRecommendation && 'opacity-50 grayscale',
+    <li className="flex items-center gap-[24px]">
+      {categoryIcon ? (
+        <img
+          src={categoryIcon}
+          alt=""
+          className="size-[64px] shrink-0 object-contain"
+        />
+      ) : (
+        <span className="size-[64px] shrink-0 bg-[repeating-conic-gradient(#e6e6e6_0_25%,#f1f1f1_0_50%)] bg-size-[14px_14px]" />
       )}
-    >
-      <span className="size-[64px] shrink-0 bg-[repeating-conic-gradient(#e6e6e6_0_25%,#f1f1f1_0_50%)] bg-size-[14px_14px]" />
+
       <div className="flex min-w-0 flex-1 flex-col gap-[4px]">
         <div className="flex items-start justify-between gap-2">
           <p className="font-['Pretendard'] text-[16px] leading-[140%] font-[500] break-keep text-[#3B426B]">

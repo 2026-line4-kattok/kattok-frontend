@@ -15,6 +15,8 @@ export default function Toast({
   hasArrow = true,
   // 아이콘 영역 크기 등을 바꿀 때 사용합니다. (기본 60×60 정사각형)
   iconClassName,
+  // 업종 3D 아이콘. 있으면 아이콘 영역에 크게 보여주고 icon은 오른쪽 아래 뱃지로 올립니다.
+  categoryIcon,
 }) {
   useEffect(() => {
     const timer = setTimeout(onClose, TOAST_DURATION);
@@ -31,11 +33,26 @@ export default function Toast({
       >
         <span
           className={cn(
-            'flex size-[60px] shrink-0 items-center justify-center overflow-hidden rounded-[6px] bg-[repeating-conic-gradient(#efefef_0_25%,#fafafa_0_50%)] bg-size-[16px_16px]',
+            'relative flex size-[60px] shrink-0 items-center justify-center overflow-hidden rounded-[6px] bg-[#FAFAFA]',
             iconClassName,
           )}
         >
-          {icon}
+          {categoryIcon ? (
+            <>
+              <img
+                src={categoryIcon}
+                alt=""
+                className="size-[48px] object-contain"
+              />
+              {icon && (
+                <span className="absolute right-[2px] bottom-[2px] flex">
+                  {icon}
+                </span>
+              )}
+            </>
+          ) : (
+            icon
+          )}
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-[4px]">
           <span className="truncate font-['Pretendard'] text-[20px] leading-[120%] font-semibold">

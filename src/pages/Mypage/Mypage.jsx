@@ -6,6 +6,7 @@ import { useCallback, useRef, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import toastTrash from '@/assets/mypage/trash_red.svg';
 import Toast from '@/components/common/Toast';
+import { getCategoryIcon } from '@/constants/categories';
 import {
   INITIAL_CARD_SAVINGS,
   INITIAL_MONTH,
@@ -135,7 +136,7 @@ export default function Mypage() {
           : 'dashboard',
     );
   const notify = (title, description, deleted = false) =>
-    setToast({ title, description, deleted });
+    setToast({ title, description, deleted, category: editing?.category });
   const save = (cardId) => {
     const card = findCard(cardId);
     setPayments((previous) =>
@@ -197,6 +198,7 @@ export default function Mypage() {
       title: '결제 기록 거부됨',
       description: '추후에 일괄로 등록할 수 있어요',
       rejected: true,
+      category: payment.category,
     });
   };
 
@@ -308,6 +310,7 @@ export default function Mypage() {
               </span>
             }
             description={toast.description}
+            categoryIcon={getCategoryIcon(toast.category)}
             icon={
               toast.rejected ? (
                 <span className="flex size-6 items-center justify-center rounded-full bg-[#EE695D]">
