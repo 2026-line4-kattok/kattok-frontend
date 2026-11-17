@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { toOwnedCardView } from '@/pages/Card/ownedCardMapper';
 import { useLocation, useNavigate } from 'react-router';
 import { ChevronLeft, Check } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import eye from '@/assets/onboarding/eye.svg';
 import eyeoff from '@/assets/onboarding/eyeclose.svg';
 import warning from '@/assets/onboarding/Warning.svg';
+//로고 이미지
 import kb from '@/assets/onboarding/국민.png';
 import wr from '@/assets/onboarding/우리은행.png';
 import sh from '@/assets/onboarding/신한은행.png';
@@ -13,21 +15,18 @@ import bc from '@/assets/onboarding/bc카드.png';
 import ss from '@/assets/onboarding/삼성카드.png';
 import hd from '@/assets/onboarding/현대.png';
 import ts from '@/assets/onboarding/토스.png';
-import search from '@/assets/onboarding/Search.svg';
-import card1 from '@/assets/onboarding/card/eco-plan.png';
-import card2 from '@/assets/onboarding/card/bbig.png';
-import card3 from '@/assets/onboarding/card/simple-plan.png';
-import card4 from '@/assets/onboarding/card/hey-young.png';
-import card5 from '@/assets/onboarding/card/sol.png';
-import card6 from '@/assets/onboarding/card/mega.png';
-import help from '@/assets/onboarding/help.svg';
 
+import search from '@/assets/onboarding/Search.svg';
+
+import help from '@/assets/onboarding/help.svg';
+import api from '@/api/axiosInstance';
+import { getSpendingOptions, registerProduct } from './signupPerformance';
+import { saveAuthSession } from './authSession';
+import PolicyService from '@/pages/Mypage/PolicyService';
+import PolicyPrivacy from '@/pages/Mypage/PolicyPrivacy';
 const STEPS = [1, 2, 3, 4];
 
-// 영문 + 숫자 + 특수문자 포함 8자 이상 (시안 문구 확인 후 규칙 조정)
-const PW_RULE = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
-
-// TODO: 로고 이미지를 받으면 logo에 import한 이미지를 넣으세요
+// 로고 연결용 정보입니다. 카드사 목록과 순서는 서버 응답을 사용합니다.
 const COMPANIES = [
   { id: 'kb', name: '국민은행', cardLabel: '국민카드', logo: kb },
   { id: 'woori', name: '우리은행', cardLabel: '우리카드', logo: wr },
@@ -39,35 +38,7 @@ const COMPANIES = [
   { id: 'toss', name: '토스뱅크', cardLabel: '토스뱅크 카드', logo: ts },
 ];
 
-// TODO: 카드 목록/검색 API 연동 시 교체 (임시 데이터)
-const MOCK_CARDS = [
-  { id: 1, name: '신한카드 ECO Plan', type: '신용카드', image: card1 },
-  { id: 2, name: '신한카드 B.Big', type: '신용카드', image: card2 },
-  { id: 3, name: '신한카드 Simple Plan', type: '신용카드', image: card3 },
-  { id: 4, name: '신한카드 Hachiware', type: '체크카드', image: card4 },
-  { id: 5, name: '신한카드 Seoul', type: '체크카드', image: card5 },
-  { id: 6, name: '신한카드 Mr.Life', type: '신용카드', image: card6 },
-];
-
 const FILTERS = ['전체', '신용카드', '체크카드'];
-
-const SPENDING = [
-  {
-    id: 'under',
-    title: '30만 원 미만',
-    desc: '이번 달 Mr.Life 혜택을 받을 수 없어요',
-  },
-  {
-    id: 'over',
-    title: '30만 원 이상',
-    desc: '카페, 편의점에서 10% 할인 받을 수 있어요',
-  },
-  {
-    id: 'unknown',
-    title: '모르겠어요.',
-    desc: '이번 달 Mr.Life 혜택을 받을 수 없어요',
-  },
-];
 
 const SHELL =
   'mx-auto flex min-h-screen max-w-[402px] flex-col bg-[#F1F1F1] px-[18px]';
@@ -224,9 +195,17 @@ export default function Signup() {
   const [screen, setScreen] = useState('steps'); // steps | welcome | done
   const [step, setStep] = useState(location.state?.initialStep === 2 ? 2 : 1);
   const [showPassword, setShowPassword] = useState(false);
+  const [companies, setCompanies] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [cardsLoading, setCardsLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState('');
 
   // 1단계
   const [form, setForm] = useState({ id: '', password: '' });
+  const [termsAgreed, setTermsAgreed] = useState(false);
+  const [policy, setPolicy] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [signupError, setSignupError] = useState('');
   // 2단계
   const [company, setCompany] = useState(null);
   // 3단계
@@ -236,10 +215,26 @@ export default function Signup() {
   const [card, setCard] = useState(null);
   // 4단계
   const [spending, setSpending] = useState(null);
+  const [performanceResult, setPerformanceResult] = useState(null);
+  const [performanceRetry, setPerformanceRetry] = useState(0);
+  const [registering, setRegistering] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  const registrationLock = useRef(false);
+  const selectionLock = useRef(false);
 
   const pwFilled = form.password !== '';
-  const pwValid = PW_RULE.test(form.password);
-  const isValid = form.id.trim() !== '' && pwValid;
+  const pwValid =
+    form.password.length >= 8 &&
+    form.password.length <= 64 &&
+    new TextEncoder().encode(form.password).length <= 72;
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.id.trim());
+
+  const isValid =
+    emailValid &&
+    form.id.trim().length <= 254 &&
+    pwValid &&
+    form.password.length <= 64 &&
+    termsAgreed;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -248,31 +243,223 @@ export default function Signup() {
 
   /* 검색: 입력이 멈추고 0.5초 뒤 결과 반영 (그동안 로딩 화면) */
   const handleSearch = (e) => {
-    const value = e.target.value;
-    setQuery(value);
-    clearTimeout(handleSearch.timer);
-    handleSearch.timer = setTimeout(() => setDebounced(value), 500);
+    setQuery(e.target.value);
   };
 
-  const searching = query.trim() !== '' && query !== debounced;
-  const typeFiltered = MOCK_CARDS.filter(
-    (c) => filter === '전체' || c.type === filter,
-  );
-  const searchResults = typeFiltered.filter((c) =>
-    c.name.toLowerCase().includes(debounced.trim().toLowerCase()),
-  );
-  const selectedCard = MOCK_CARDS.find((c) => c.id === card);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebounced(query);
+    }, 500);
 
-  const handleSubmit = (e) => {
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  // 서버의 카드사 ID를 사용합니다. 기존 COMPANIES는 로고 연결용입니다.
+  useEffect(() => {
+    if (step !== 2) return;
+
+    let cancelled = false;
+
+    const normalizeIssuer = (value = '') =>
+      value.toLowerCase().replace(/kb|은행|카드|\s/g, '');
+
+    async function loadIssuers() {
+      try {
+        const issuers = await api.get('/v1/card-issuers');
+
+        if (!Array.isArray(issuers)) {
+          throw new Error('Invalid issuer response');
+        }
+
+        if (cancelled) return;
+
+        setCatalogError('');
+        setCompanies(
+          issuers.map((issuer) => {
+            const companyInfo = COMPANIES.find(
+              (item) =>
+                normalizeIssuer(item.name) === normalizeIssuer(issuer.name),
+            );
+
+            return {
+              ...issuer,
+              logo: companyInfo?.logo,
+              cardLabel: issuer.name,
+            };
+          }),
+        );
+      } catch {
+        if (!cancelled) {
+          setCatalogError(
+            '카드사 목록을 불러오지 못했어요. 다시 시도해주세요.',
+          );
+        }
+      }
+    }
+
+    loadIssuers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [step]);
+
+  useEffect(() => {
+    if (step !== 3 || company == null) return;
+
+    let cancelled = false;
+
+    async function loadProducts() {
+      await Promise.resolve();
+      if (cancelled) return;
+      setCardsLoading(true);
+      setCatalogError('');
+      setProducts([]);
+      try {
+        const result = await api.get('/v1/card-products', {
+          params: {
+            issuerId: company,
+            ...(debounced.trim() && { keyword: debounced.trim() }),
+            ...(filter !== '전체' && {
+              cardType: filter === '신용카드' ? 'CREDIT' : 'CHECK',
+            }),
+          },
+        });
+
+        if (!Array.isArray(result)) {
+          throw new Error('Invalid product response');
+        }
+
+        if (cancelled) return;
+
+        setProducts(
+          result.map((product) => {
+            const view = toOwnedCardView({
+              id: product.id,
+              product: {
+                ...product,
+                issuerName: product.issuer?.name ?? '',
+              },
+            });
+
+            return {
+              ...view,
+              owned: product.owned,
+            };
+          }),
+        );
+      } catch {
+        if (!cancelled) {
+          setCatalogError('카드 목록을 불러오지 못했어요. 다시 시도해주세요.');
+        }
+      } finally {
+        if (!cancelled) setCardsLoading(false);
+      }
+    }
+
+    loadProducts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [step, company, debounced, filter]);
+
+  useEffect(() => {
+    if (step !== 4 || card == null) return;
+    if (
+      performanceResult?.productId === card &&
+      (performanceResult.product || performanceResult.error)
+    )
+      return;
+    const controller = new AbortController();
+    api
+      .get(`/v1/card-products/${card}`, { signal: controller.signal })
+      .then((product) => {
+        if (
+          !product ||
+          product.id !== card ||
+          !Array.isArray(product.performanceTiers)
+        ) {
+          throw new Error('Invalid card product detail');
+        }
+        if (!controller.signal.aborted)
+          setPerformanceResult({ productId: card, product });
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted)
+          setPerformanceResult({ productId: card, error });
+      });
+    return () => controller.abort();
+  }, [step, card, performanceRetry, performanceResult]);
+
+  const performanceProduct =
+    performanceResult?.productId === card ? performanceResult.product : null;
+  const performanceError =
+    performanceResult?.productId === card && performanceResult.error;
+  const performanceLoading =
+    card != null && !performanceProduct && !performanceError;
+  const spendingOptions = getSpendingOptions(performanceProduct);
+
+  const searching = cardsLoading || query !== debounced;
+  const typeFiltered = products;
+  const searchResults = products;
+  const selectedCard = products.find((item) => item.id === card);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!isValid) return;
-    // TODO: 회원가입 API 연동 (성공 시 다음 단계로)
-    setStep(2);
+    if (!isValid || submitting) return;
+
+    setSubmitting(true);
+    setSignupError('');
+
+    try {
+      const result = await api.post(
+        '/v1/auth/signup',
+        {
+          email: form.id.trim(),
+          password: form.password,
+          termsAgreed,
+        },
+        {
+          transformRequest: [
+            (data, headers) => {
+              headers.delete('Authorization');
+              return data;
+            },
+            ...api.defaults.transformRequest,
+          ],
+        },
+      );
+
+      if (!result?.accessToken) {
+        setSignupError(
+          '회원가입 응답을 확인하지 못했어요. 로그인 화면에서 가입 여부를 확인해주세요.',
+        );
+        return;
+      }
+
+      saveAuthSession(result);
+      setForm({ id: '', password: '' });
+      setStep(2);
+    } catch (err) {
+      setSignupError(
+        err.response?.data?.message ||
+          '회원가입하지 못했어요. 네트워크 상태를 확인하고 다시 시도해주세요.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleBack = () => {
-    if (step === 1) navigate('/onboarding', { state: { back: true } });
-    else setStep((prev) => prev - 1);
+    if (submitting || registrationLock.current || selectionLock.current) return;
+
+    if (step <= 2) {
+      navigate('/onboarding', { state: { back: true } });
+      return;
+    }
+
+    setStep((prev) => prev - 1);
   };
 
   const resetCard = () => {
@@ -287,12 +474,80 @@ export default function Signup() {
   };
 
   /* 건너뛰기 → 회원가입 완료 화면 */
-  const handleSkip = () => navigate('/');
-
-  const handleRegisterCard = () => {
-    // TODO: 카드 등록 API 연동 (company, card, spending)
-    setScreen('done');
+  const handleSkip = () => {
+    if (!registrationLock.current && !selectionLock.current) navigate('/');
   };
+
+  const handleRegisterCard = async (
+    product = performanceProduct,
+    selection = spending,
+  ) => {
+    if (registrationLock.current) return;
+    registrationLock.current = true;
+    setRegistering(true);
+    setCatalogError('');
+    try {
+      const registered = await registerProduct(api, product, selection);
+      if (!registered?.id || registered.product?.id !== product.id)
+        throw new Error('등록 결과를 확인하지 못했어요. 다시 시도해주세요.');
+      setScreen('done');
+    } catch (error) {
+      setCatalogError(
+        error.response?.data?.message ||
+          error.message ||
+          '카드를 등록하지 못했어요. 다시 시도해주세요.',
+      );
+    } finally {
+      registrationLock.current = false;
+      setRegistering(false);
+    }
+  };
+
+  const handleSelectCard = async (item) => {
+    if (item.owned || registrationLock.current || selectionLock.current) return;
+    selectionLock.current = true;
+    setSelecting(true);
+    setCard(item.id);
+    setSpending(null);
+    setPerformanceResult(null);
+    setCatalogError('');
+    try {
+      const product = await api.get(`/v1/card-products/${item.id}`);
+      if (product?.id !== item.id || !Array.isArray(product.performanceTiers))
+        throw new Error('카드 정보를 다시 확인해주세요.');
+      setPerformanceResult({ productId: item.id, product });
+      if (['NONE', 'NEEDS_CHECK'].includes(product.performanceType)) {
+        await handleRegisterCard(product);
+      } else {
+        setStep(4);
+      }
+    } catch (error) {
+      setCatalogError(
+        error.response?.data?.message ||
+          '카드 정보를 불러오지 못했어요. 다시 선택해주세요.',
+      );
+    } finally {
+      selectionLock.current = false;
+      setSelecting(false);
+    }
+  };
+  if (policy) {
+    return (
+      <div className={cn(SHELL, 'pb-8')}>
+        <header className="mt-[62px] flex h-14 shrink-0 items-center">
+          <button
+            type="button"
+            onClick={() => setPolicy(null)}
+            aria-label="회원가입으로 돌아가기"
+            className="cursor-pointer"
+          >
+            <ChevronLeft className="size-6 text-[#CACACA]" />
+          </button>
+        </header>
+        {policy === 'terms' ? <PolicyService /> : <PolicyPrivacy />}
+      </div>
+    );
+  }
 
   /* ── 회원가입 완료 (카드 등록 안내) ── */
   if (screen === 'welcome') {
@@ -362,6 +617,11 @@ export default function Signup() {
     >
       {/* 상단: 뒤로가기 + 스텝 인디케이터 + 건너뛰기 */}
       <header className="relative mt-[62px] flex h-14 shrink-0 items-center">
+        {catalogError && (
+          <p role="alert" className="my-4 text-[14px] text-[#EE695D]">
+            {catalogError}
+          </p>
+        )}
         <button type="button" onClick={handleBack} aria-label="뒤로 가기">
           <ChevronLeft className="size-6 cursor-pointer text-[#CACACA]" />
         </button>
@@ -371,6 +631,7 @@ export default function Signup() {
             <button
               key={n}
               type="button"
+              disabled={submitting || registering || selecting}
               onClick={() => setStep(n)}
               className={cn(
                 'flex size-6 cursor-pointer items-center justify-center rounded-full text-[16px] font-normal',
@@ -439,7 +700,7 @@ export default function Signup() {
               {pwFilled && !pwValid && (
                 <p className="mt-[3.5px] flex items-center gap-1 text-[12px] text-[#EE695D]">
                   <img src={warning} alt="" className="size-4 shrink-0" />
-                  대문자, 숫자, 특수문자를 포함하여 8자가 되어야 합니다.
+                  비밀번호는 8~64자, UTF-8 기준 72바이트 이내로 입력해주세요.
                 </p>
               )}
               {pwFilled && pwValid && (
@@ -449,14 +710,54 @@ export default function Signup() {
               )}
             </div>
           </div>
+          <label className="mt-6 mb-2 flex items-center gap-2 font-[Pretendard] text-[16px] leading-[1.4] font-normal tracking-[0px] text-[#8E8E8E]">
+            <input
+              type="checkbox"
+              checked={termsAgreed}
+              onChange={(e) => setTermsAgreed(e.target.checked)}
+              disabled={submitting || registering || selecting}
+              className="peer sr-only"
+            />
+            <span className="flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-[0.8px] border-[2.5px] border-[#CACACA] text-[#ffffff] text-transparent transition-colors peer-checked:bg-[#CACACA] peer-checked:text-[#FAFAFA]">
+              <Check className="size-4" strokeWidth={3} />
+            </span>
+            <span className="flex min-w-0 items-baseline gap-1">
+              <span className="shrink-0">[필수]</span>
+              <span>서비스 약관 및 개인정보 처리 동의</span>
+            </span>
+          </label>
+
+          <div className="flex flex-wrap items-center gap-2 text-[14px] leading-[1.4] text-[#B3B3B3]">
+            <button
+              type="button"
+              onClick={() => setPolicy('terms')}
+              className="cursor-pointer"
+            >
+              서비스 이용약관 보기
+            </button>
+            <span aria-hidden="true">·</span>
+            <button
+              type="button"
+              onClick={() => setPolicy('privacy')}
+              className="cursor-pointer"
+            >
+              개인정보 처리방침 보기
+            </button>
+          </div>
+
+          {signupError && (
+            <p role="alert" className="mb-4 text-[14px] text-[#EE695D]">
+              {signupError}
+            </p>
+          )}
 
           <Footer>
             <PrimaryButton
               type="submit"
-              disabled={!isValid}
+              disabled={!isValid || submitting}
               className="rounded-[8px] group-has-[input[name]:focus]:rounded-[27px]"
             >
-              회원가입
+              {submitting ? '가입 중...' : '회원가입'}
             </PrimaryButton>
           </Footer>
         </form>
@@ -475,7 +776,7 @@ export default function Signup() {
           </div>
 
           <div className="mt-6 grid grid-cols-3 gap-3">
-            {COMPANIES.map((c) => {
+            {companies.map((c) => {
               const selected = company === c.id;
               return (
                 <button
@@ -483,6 +784,13 @@ export default function Signup() {
                   type="button"
                   onClick={() => {
                     setCompany(c.id);
+                    setQuery('');
+                    setDebounced('');
+                    setFilter('전체');
+                    setCard(null);
+                    setSpending(null);
+                    setProducts([]);
+                    setCatalogError('');
                     setStep(3);
                   }}
                   className="flex cursor-pointer flex-col items-center gap-2"
@@ -528,7 +836,7 @@ export default function Signup() {
           <div className="mt-6">
             <h1 className="text-[24px] font-semibold text-[#121212]">
               어떤{' '}
-              {COMPANIES.find((c) => c.id === company)?.cardLabel ?? '카드'}를
+              {companies.find((c) => c.id === company)?.cardLabel ?? '카드'}를
               사용하시나요?
             </h1>
             <p className="font-regular mt-2 mb-6 text-[16px] text-[#4B4B4B]">
@@ -578,10 +886,8 @@ export default function Signup() {
                     <button
                       key={c.id}
                       type="button"
-                      onClick={() => {
-                        setCard(c.id);
-                        setStep(4);
-                      }}
+                      disabled={c.owned || registering || selecting}
+                      onClick={() => handleSelectCard(c)}
                       className="flex w-full min-w-0 cursor-pointer flex-col gap-1"
                     >
                       <div
@@ -608,6 +914,7 @@ export default function Signup() {
                         )}
                       >
                         {c.name.replace(' ', '\n')}
+                        {c.owned && ' (\uB4F1\uB85D\uB428)'}
                       </span>
                     </button>
                   );
@@ -629,10 +936,8 @@ export default function Signup() {
                   <button
                     key={c.id}
                     type="button"
-                    onClick={() => {
-                      setCard(c.id);
-                      setStep(4);
-                    }}
+                    disabled={c.owned || registering || selecting}
+                    onClick={() => handleSelectCard(c)}
                     className={cn(
                       'flex h-[96px] w-full cursor-pointer items-stretch overflow-hidden rounded-[8px] bg-[#EBEBEB] text-left transition-colors',
                     )}
@@ -646,6 +951,7 @@ export default function Signup() {
                     </div>
                     <span className="flex min-w-0 flex-1 items-center justify-center px-3 text-center text-[14px] text-[#8E8E8E]">
                       {c.name}
+                      {c.owned && ' (\uB4F1\uB85D\uB428)'}
                     </span>
                   </button>
                 ))}
@@ -655,6 +961,7 @@ export default function Signup() {
             {/* 검색 결과 없음 */}
             {query.trim() !== '' &&
               !searching &&
+              !catalogError &&
               searchResults.length === 0 && (
                 <div className="mt-[155.5px] flex flex-col items-center">
                   <img src={help} className="h-20 w-20" />
@@ -694,9 +1001,50 @@ export default function Signup() {
             </span>
           </div>
 
+          {card == null && (
+            <p role="alert" className="mt-6 text-[14px] text-[#EE695D]">
+              {
+                '\uBA3C\uC800 \uCE74\uB4DC\uB97C \uC120\uD0DD\uD574\uC8FC\uC138\uC694.'
+              }
+            </p>
+          )}
+          {performanceLoading && (
+            <p role="status" className="mt-6 text-[14px] text-[#8E8E8E]">
+              {
+                '\uC2E4\uC801 \uC870\uAC74\uC744 \uBD88\uB7EC\uC624\uACE0 \uC788\uC5B4\uC694...'
+              }
+            </p>
+          )}
+          {performanceError && (
+            <div className="mt-6 text-[14px] text-[#EE695D]" role="alert">
+              <p>
+                {
+                  '\uC2E4\uC801 \uC870\uAC74\uC744 \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC5B4\uC694.'
+                }
+              </p>
+              <button
+                type="button"
+                className="mt-2 underline"
+                onClick={() => {
+                  setPerformanceResult(null);
+                  setPerformanceRetry((value) => value + 1);
+                }}
+              >
+                {'\uB2E4\uC2DC \uC2DC\uB3C4'}
+              </button>
+            </div>
+          )}
+          {performanceProduct?.performanceType === 'NONE' && (
+            <p className="mt-6 text-[14px] text-[#8E8E8E]">
+              {
+                '\uC774 \uCE74\uB4DC\uB294 \uC804\uC6D4 \uC2E4\uC801 \uC785\uB825 \uC5C6\uC774 \uB4F1\uB85D\uD560 \uC218 \uC788\uC5B4\uC694.'
+              }
+            </p>
+          )}
+
           {/* 실적 선택 (라디오) */}
           <div className="mt-6 mb-8 divide-y divide-[#DCDCDC] rounded-[8px] bg-[#EBEBEB]">
-            {SPENDING.map((s) => (
+            {spendingOptions.map((s) => (
               <button
                 key={s.id}
                 type="button"
@@ -728,10 +1076,19 @@ export default function Signup() {
           <Footer>
             <PrimaryButton
               className="rounded-[8px]"
-              disabled={!spending}
-              onClick={handleRegisterCard}
+              disabled={
+                registering ||
+                card == null ||
+                performanceLoading ||
+                Boolean(performanceError) ||
+                (!spending &&
+                  !['NONE', 'NEEDS_CHECK'].includes(
+                    performanceProduct?.performanceType,
+                  ))
+              }
+              onClick={() => handleRegisterCard()}
             >
-              카드 등록하기
+              {registering ? '등록 중...' : '카드 등록하기'}
             </PrimaryButton>
           </Footer>
         </div>

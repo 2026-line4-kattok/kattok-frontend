@@ -51,13 +51,20 @@ function CardCarousel({ cards, loading }) {
         >
           {loading ? (
             <div className="h-full w-full rounded-[14px] bg-gradient-to-b from-[#E2E2E2] via-[#FAFAFA] to-[#E2E2E2]" />
-          ) : (
+          ) : card.image ? (
             <img
               src={card.image}
               alt={card.name}
               draggable={false}
               className="h-full w-full rounded-[14px] object-contain"
             />
+          ) : (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-[14px] bg-[#DBE1FF] px-5 text-center">
+              <p className="text-[14px] text-[#6E6E6E]">{card.issuerName}</p>
+              <p className="text-[20px] font-semibold text-[#3B426B]">
+                {card.name}
+              </p>
+            </div>
           )}
         </div>
       ))}

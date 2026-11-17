@@ -1,3 +1,4 @@
+import { clearAuthSession } from '@/pages/Onboarding/authSession';
 import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronRight } from 'lucide-react';
@@ -45,9 +46,10 @@ export function LogoutDialog({ onClose }) {
         <button
           type="button"
           className="bg-[#A3B1FF] text-[#7F90E8]"
-          onClick={() =>
-            navigate('/onboarding', { replace: true, state: { back: true } })
-          }
+          onClick={() => {
+            clearAuthSession();
+            navigate('/onboarding', { replace: true, state: { back: true } });
+          }}
         >
           로그아웃
         </button>
