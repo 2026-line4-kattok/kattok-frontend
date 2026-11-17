@@ -3,7 +3,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SearchIcon } from '@/assets/icons/icons';
 import { getCategoryIcon } from '@/constants/categories';
+import useDebouncedValue from '@/hooks/useDebouncedValue';
 import useMerchantCategories from '@/hooks/useMerchantCategories';
+import useMerchantSearch from '@/hooks/useMerchantSearch';
 import useRecentMerchants from '@/hooks/useRecentMerchants';
 import { cn } from '@/utils/cn';
 
@@ -20,6 +22,79 @@ function CategoryThumbnail({ category }) {
         <span className="size-[48px] bg-[repeating-conic-gradient(#e6e6e6_0_25%,#f6f6f6_0_50%)] bg-size-[12px_12px]" />
       )}
     </span>
+  );
+}
+
+// 결제처 이름에서 검색어와 일치하는 부분을 강조합니다. (영문 대소문자 무시)
+// 별칭에만 일치해 대표 이름에 일치하는 부분이 없으면 강조하지 않습니다.
+function HighlightedName({ name, keyword }) {
+  const index = keyword
+    ? name.toLowerCase().indexOf(keyword.toLowerCase())
+    : -1;
+  if (index < 0) return name;
+  return (
+    <>
+      {name.slice(0, index)}
+      <mark className="bg-transparent text-[#8C9EFF]">
+        {name.slice(index, index + keyword.length)}
+      </mark>
+      {name.slice(index + keyword.length)}
+    </>
+  );
+}
+
+const STATUS_TEXT =
+  "mt-[28px] text-center font-['Pretendard'] text-[14px] leading-[140%] text-[#8E8E8E]";
+
+// 조회 실패 안내 (빈 결과로 숨기지 않습니다)
+function RetryMessage({ message, onRetry }) {
+  return (
+    <div className="mt-[28px] flex flex-col items-center gap-[12px] font-['Pretendard'] text-[14px] leading-[140%] text-[#8E8E8E]">
+      <p>{message}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="rounded-[27px] bg-[#121212] px-[16px] py-[8px] text-[#FAFAFA]"
+      >
+        다시 시도
+      </button>
+    </div>
+  );
+}
+
+// 결제처 목록 (최근 결제한 곳·검색 결과 공용). 미지원 결제처는 흐리게 보여 주고 선택을 막습니다.
+function MerchantList({ merchants, keyword, onSelect }) {
+  return (
+    <ul className="mt-[24px] flex flex-col">
+      {merchants.map((merchant) => (
+        <li key={merchant.id} className="py-[8px]">
+          <button
+            type="button"
+            disabled={!merchant.supported}
+            onClick={() => onSelect(merchant)}
+            className={cn(
+              'flex w-full items-center gap-[12px] text-left',
+              !merchant.supported && 'cursor-not-allowed opacity-50',
+            )}
+          >
+            <CategoryThumbnail category={merchant.category} />
+            <span className="flex min-w-0 flex-col gap-[4px]">
+              <span className="truncate font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#3B426B]">
+                <HighlightedName name={merchant.place} keyword={keyword} />
+              </span>
+              <span className="font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]">
+                {merchant.supported
+                  ? [merchant.category, merchant.date]
+                      .filter(Boolean)
+                      .join(' · ')
+                  : (merchant.unsupportedReason ??
+                    '카똑이 아직 계산하지 않는 곳')}
+              </span>
+            </span>
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -41,16 +116,26 @@ export default function SearchPage() {
     refetch: refetchRecent,
   } = useRecentMerchants();
 
-  // TODO: 4-4 결제처 검색 API 연동 전까지는 최근 결제한 곳 안에서만 걸러 봅니다.
+  // 앞뒤 공백을 뺀 검색어가 있으면 검색 결과, 없으면 최근 결제한 곳을 보여 줍니다.
   const trimmed = keyword.trim();
-  const places = trimmed
-    ? recentMerchants.filter(
-        ({ place, category }) =>
-          place.includes(trimmed) || category.includes(trimmed),
-      )
-    : recentMerchants;
+  const debouncedKeyword = useDebouncedValue(trimmed);
+  const {
+    data: searchResults = [],
+    isPending: isSearchPending,
+    isError: isSearchError,
+    refetch: refetchSearch,
+  } = useMerchantSearch(debouncedKeyword);
+  // 디바운스 대기 중에도 '검색 결과가 없어요'가 잠깐 보이지 않도록 검색 중으로 봅니다.
+  const isSearching = trimmed !== debouncedKeyword || isSearchPending;
 
   const goToAmount = (state) => navigate(AMOUNT_PATH, { state });
+  const selectMerchant = (merchant) =>
+    goToAmount({
+      merchantId: merchant.id,
+      categoryId: merchant.categoryId,
+      category: merchant.category,
+      place: merchant.place,
+    });
 
   return (
     <div className="min-h-dvh bg-[#F1F1F1]">
@@ -137,63 +222,43 @@ export default function SearchPage() {
 
         <section className="mt-[48px] flex flex-col">
           <h2 className="font-['Pretendard'] text-[18px] leading-[120%] font-[600] text-[#4B4B4B]">
-            최근 결제한 곳
+            {trimmed ? '검색 결과' : '최근 결제한 곳'}
           </h2>
-          {isRecentPending ? (
-            <p className="mt-[28px] text-center font-['Pretendard'] text-[14px] leading-[140%] text-[#8E8E8E]">
-              최근 결제한 곳을 불러오는 중이에요
-            </p>
+          {trimmed ? (
+            isSearching && searchResults.length === 0 ? (
+              <p className={STATUS_TEXT}>검색 중이에요</p>
+            ) : isSearchError ? (
+              <RetryMessage
+                message="검색하지 못했어요"
+                onRetry={() => refetchSearch()}
+              />
+            ) : searchResults.length > 0 ? (
+              <MerchantList
+                merchants={searchResults}
+                keyword={debouncedKeyword}
+                onSelect={selectMerchant}
+              />
+            ) : (
+              <p className={STATUS_TEXT}>
+                검색 결과가 없어요
+                <br />
+                위의 업종으로 골라 보세요
+              </p>
+            )
+          ) : isRecentPending ? (
+            <p className={STATUS_TEXT}>최근 결제한 곳을 불러오는 중이에요</p>
           ) : isRecentError ? (
-            <div className="mt-[28px] flex flex-col items-center gap-[12px] font-['Pretendard'] text-[14px] leading-[140%] text-[#8E8E8E]">
-              <p>최근 결제한 곳을 불러오지 못했어요</p>
-              <button
-                type="button"
-                onClick={() => refetchRecent()}
-                className="rounded-[27px] bg-[#121212] px-[16px] py-[8px] text-[#FAFAFA]"
-              >
-                다시 시도
-              </button>
-            </div>
-          ) : places.length > 0 ? (
-            <ul className="mt-[24px] flex flex-col">
-              {places.map((merchant) => (
-                <li key={merchant.id} className="py-[8px]">
-                  <button
-                    type="button"
-                    disabled={!merchant.supported}
-                    onClick={() =>
-                      goToAmount({
-                        merchantId: merchant.id,
-                        categoryId: merchant.categoryId,
-                        category: merchant.category,
-                        place: merchant.place,
-                      })
-                    }
-                    className={cn(
-                      'flex w-full items-center gap-[12px] text-left',
-                      !merchant.supported && 'cursor-not-allowed opacity-50',
-                    )}
-                  >
-                    <CategoryThumbnail category={merchant.category} />
-                    <span className="flex min-w-0 flex-col gap-[4px]">
-                      <span className="truncate font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#3B426B]">
-                        {merchant.place}
-                      </span>
-                      <span className="font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]">
-                        {merchant.supported
-                          ? `${merchant.category} · ${merchant.date}`
-                          : (merchant.unsupportedReason ??
-                            '카똑이 아직 계산하지 않는 곳')}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <RetryMessage
+              message="최근 결제한 곳을 불러오지 못했어요"
+              onRetry={() => refetchRecent()}
+            />
+          ) : recentMerchants.length > 0 ? (
+            <MerchantList
+              merchants={recentMerchants}
+              onSelect={selectMerchant}
+            />
           ) : (
-            <p className="mt-[28px] text-center font-['Pretendard'] text-[14px] leading-[140%] text-[#8E8E8E]">
-              {trimmed ? '검색 결과가 없어요' : '최근 결제한 곳이 없어요'}
-            </p>
+            <p className={STATUS_TEXT}>최근 결제한 곳이 없어요</p>
           )}
         </section>
       </main>
