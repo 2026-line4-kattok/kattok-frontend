@@ -2,71 +2,21 @@ import { X } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SearchIcon } from '@/assets/icons/icons';
-import hiPointPlanPlusImage from '@/assets/card/신한카드 Hi Point Plan+.png';
-import mrLifeImage from '@/assets/card/신한카드 Mr Life.png';
-import simplePlanPlusImage from '@/assets/card/신한카드 Simple Plan+.png';
-import noriImage from '@/assets/card/KB 국민은행 노리2.png';
-import hanaKPassCheckImage from '@/assets/card/하나 K패스 체크카드.png';
-import { CATEGORIES } from '@/constants/categories';
-
-// TODO: API 연동 시 서버 데이터로 교체합니다.
-const RECENT_PLACES = [
-  {
-    id: 1,
-    place: '스타벅스',
-    category: '카페',
-    date: '11월 04일',
-    cardImage: noriImage,
-  },
-  {
-    id: 2,
-    place: 'GS25',
-    category: '편의점',
-    date: '11월 03일',
-    cardImage: mrLifeImage,
-  },
-  {
-    id: 3,
-    place: '쿠팡',
-    category: '온라인 쇼핑',
-    date: '11월 03일',
-    cardImage: noriImage,
-  },
-  {
-    id: 4,
-    place: '카카오 택시',
-    category: '택시',
-    date: '11월 03일',
-    cardImage: hanaKPassCheckImage,
-  },
-  {
-    id: 5,
-    place: '아이파크몰',
-    category: '마트',
-    date: '10월 28일',
-    cardImage: simplePlanPlusImage,
-  },
-  {
-    id: 6,
-    place: '스타필드 하남',
-    category: '마트',
-    date: '10월 28일',
-    cardImage: hiPointPlanPlusImage,
-  },
-];
+import { CATEGORIES, getCategoryIcon } from '@/constants/categories';
+import useRecentMerchants from '@/hooks/useRecentMerchants';
+import { cn } from '@/utils/cn';
 
 const AMOUNT_PATH = '/payment/amount';
 
-// 세로형 카드 이미지를 가로로 돌려서 보여줍니다.
-function CardThumbnail({ image }) {
+// 최근 결제한 곳의 업종 아이콘
+function CategoryThumbnail({ category }) {
+  const icon = getCategoryIcon(category);
   return (
-    <span className="relative h-[64px] w-[102px] shrink-0 overflow-hidden rounded-[8px] bg-[#CACACA]">
-      {image && (
-        <img
-          src={image}
-          alt=""
-          className="absolute top-1/2 left-1/2 h-[102px] w-[64px] -translate-x-1/2 -translate-y-1/2 -rotate-90 object-cover"
-        />
+    <span className="flex h-[64px] w-[102px] shrink-0 items-center justify-center overflow-hidden rounded-[8px] bg-[#EBEBEB]">
+      {icon ? (
+        <img src={icon} alt="" className="size-[48px] object-contain" />
+      ) : (
+        <span className="size-[48px] bg-[repeating-conic-gradient(#e6e6e6_0_25%,#f6f6f6_0_50%)] bg-size-[12px_12px]" />
       )}
     </span>
   );
@@ -76,13 +26,21 @@ export default function SearchPage() {
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
 
+  const {
+    data: recentMerchants = [],
+    isPending: isRecentPending,
+    isError: isRecentError,
+    refetch: refetchRecent,
+  } = useRecentMerchants();
+
+  // TODO: 4-4 결제처 검색 API 연동 전까지는 최근 결제한 곳 안에서만 걸러 봅니다.
   const trimmed = keyword.trim();
   const places = trimmed
-    ? RECENT_PLACES.filter(
+    ? recentMerchants.filter(
         ({ place, category }) =>
           place.includes(trimmed) || category.includes(trimmed),
       )
-    : RECENT_PLACES;
+    : recentMerchants;
 
   const goToAmount = (state) => navigate(AMOUNT_PATH, { state });
 
@@ -145,22 +103,51 @@ export default function SearchPage() {
           <h2 className="font-['Pretendard'] text-[18px] leading-[120%] font-[600] text-[#4B4B4B]">
             최근 결제한 곳
           </h2>
-          {places.length > 0 ? (
+          {isRecentPending ? (
+            <p className="mt-[28px] text-center font-['Pretendard'] text-[14px] leading-[140%] text-[#8E8E8E]">
+              최근 결제한 곳을 불러오는 중이에요
+            </p>
+          ) : isRecentError ? (
+            <div className="mt-[28px] flex flex-col items-center gap-[12px] font-['Pretendard'] text-[14px] leading-[140%] text-[#8E8E8E]">
+              <p>최근 결제한 곳을 불러오지 못했어요</p>
+              <button
+                type="button"
+                onClick={() => refetchRecent()}
+                className="rounded-[27px] bg-[#121212] px-[16px] py-[8px] text-[#FAFAFA]"
+              >
+                다시 시도
+              </button>
+            </div>
+          ) : places.length > 0 ? (
             <ul className="mt-[24px] flex flex-col">
-              {places.map(({ id, place, category, date, cardImage }) => (
-                <li key={id} className="py-[8px]">
+              {places.map((merchant) => (
+                <li key={merchant.id} className="py-[8px]">
                   <button
                     type="button"
-                    onClick={() => goToAmount({ category, place })}
-                    className="flex w-full items-center gap-[12px] text-left"
+                    disabled={!merchant.supported}
+                    onClick={() =>
+                      goToAmount({
+                        merchantId: merchant.id,
+                        categoryId: merchant.categoryId,
+                        category: merchant.category,
+                        place: merchant.place,
+                      })
+                    }
+                    className={cn(
+                      'flex w-full items-center gap-[12px] text-left',
+                      !merchant.supported && 'cursor-not-allowed opacity-50',
+                    )}
                   >
-                    <CardThumbnail image={cardImage} />
+                    <CategoryThumbnail category={merchant.category} />
                     <span className="flex min-w-0 flex-col gap-[4px]">
                       <span className="truncate font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#3B426B]">
-                        {place}
+                        {merchant.place}
                       </span>
                       <span className="font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#8E8E8E]">
-                        {category} · {date}
+                        {merchant.supported
+                          ? `${merchant.category} · ${merchant.date}`
+                          : (merchant.unsupportedReason ??
+                            '카똑이 아직 계산하지 않는 곳')}
                       </span>
                     </span>
                   </button>
@@ -169,7 +156,7 @@ export default function SearchPage() {
             </ul>
           ) : (
             <p className="mt-[28px] text-center font-['Pretendard'] text-[14px] leading-[140%] text-[#8E8E8E]">
-              검색 결과가 없어요
+              {trimmed ? '검색 결과가 없어요' : '최근 결제한 곳이 없어요'}
             </p>
           )}
         </section>
