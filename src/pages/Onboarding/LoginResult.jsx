@@ -47,17 +47,24 @@ function CardCarousel({ cards, loading }) {
       ).map((card) => (
         <div
           key={card.id}
-          className="aspect-[215/340] h-full shrink-0 snap-start scroll-ml-[18px]"
+          className="relative aspect-[215/340] h-full shrink-0 snap-start scroll-ml-[18px]"
         >
           {loading ? (
             <div className="h-full w-full rounded-[14px] bg-gradient-to-b from-[#E2E2E2] via-[#FAFAFA] to-[#E2E2E2]" />
-          ) : (
+          ) : card.image ? (
             <img
               src={card.image}
               alt={card.name}
               draggable={false}
-              className="h-full w-full rounded-[14px] object-contain"
+              className={card.isHorizontal ? 'absolute top-1/2 left-1/2 h-[63.24%] w-[158.14%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-90 rounded-[14px] object-contain' : 'h-full w-full rounded-[14px] object-contain'}
             />
+          ) : (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-[14px] bg-[#DBE1FF] px-5 text-center">
+              <p className="text-[14px] text-[#6E6E6E]">{card.issuerName}</p>
+              <p className="text-[20px] font-semibold text-[#3B426B]">
+                {card.name}
+              </p>
+            </div>
           )}
         </div>
       ))}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
+import api from '@/api/axiosInstance';
 import { ChevronLeft, Check } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import eye from '@/assets/onboarding/eye.svg';
@@ -7,16 +8,14 @@ import eyeclose from '@/assets/onboarding/eyeclose.svg';
 import warning from '@/assets/onboarding/Warning.svg';
 
 import LoginResult from './LoginResult';
-import exampleCard1 from '@/assets/onboarding/card/eco-plan.png';
-import exampleCard2 from '@/assets/onboarding/card/hey-young.png';
-import exampleCard3 from '@/assets/onboarding/card/bbig.png';
+import { dissolve } from './dissolve';
+import {
+  canRestoreAutoLogin,
+  clearAuthSession,
+  saveAuthSession,
+} from './authSession';
 
-// Temporary preview data until the login/card API is connected.
-const EXAMPLE_CARDS = [
-  { id: 1, name: 'ECO Plan', image: exampleCard1 },
-  { id: 2, name: 'Hey Young', image: exampleCard2 },
-  { id: 3, name: 'B.Big', image: exampleCard3 },
-];
+import { toOnboardingCardView } from './onboardingCardImages';
 
 /*
 상단 아이디, 비밀번호*/
@@ -88,22 +87,49 @@ function FloatingField({
 
 export default function Login() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const cards = location.state?.registeredCards ?? EXAMPLE_CARDS;
+  const [cards, setCards] = useState([]);
   const [form, setForm] = useState({ id: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
-  const [autoLogin, setAutoLogin] = useState(false);
+  const [restoringAutoLogin] = useState(canRestoreAutoLogin);
+  const [autoLogin, setAutoLogin] = useState(restoringAutoLogin);
   const [error, setError] = useState('');
-  const [status, setStatus] = useState('idle'); // idle | loading
+  const [status, setStatus] = useState(restoringAutoLogin ? 'loading' : 'idle'); // idle | loading
 
   useEffect(() => {
-    if (status !== 'loading') return;
-    // Replace this preview delay with the card API response.
-    const timer = window.setTimeout(() => setStatus('complete'), 1500);
-    return () => window.clearTimeout(timer);
-  }, [status]);
+    if (!restoringAutoLogin) return;
+    const controller = new AbortController();
+    api
+      .get('/v1/users/me', { signal: controller.signal })
+      .then(() => api.get('/v1/owned-cards', { signal: controller.signal }))
+      .then((ownedCards) => {
+        if (!Array.isArray(ownedCards))
+          throw new Error('Invalid owned cards response');
+        if (controller.signal.aborted) return;
+        void dissolve(() => {
+          setCards(ownedCards.map(toOnboardingCardView));
+          setStatus('complete');
+        });
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        if (error.response?.status === 401) {
+          clearAuthSession();
+          setStatus('idle');
+          setError(
+            '\uB85C\uADF8\uC778\uC774 \uB9CC\uB8CC\uB410\uC5B4\uC694. \uB2E4\uC2DC \uB85C\uADF8\uC778\uD574\uC8FC\uC138\uC694.',
+          );
+        } else {
+          setStatus('cards-error');
+        }
+      });
+    return () => controller.abort();
+  }, [restoringAutoLogin]);
 
-  const isValid = form.id.trim() !== '' && form.password !== '';
+  const isValid =
+    form.id.trim() !== '' &&
+    form.id.trim().length <= 254 &&
+    form.password !== '' &&
+    form.password.length <= 64;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -113,17 +139,71 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!isValid) return;
+    if (!isValid || status !== 'idle') return;
+
+    setError('');
+    setStatus('authenticating');
+
     try {
-      // TODO: 로그인 API 연동 (form, autoLogin 사용)
-      setStatus('loading');
-      // TODO: 카드 정보 불러온 뒤 navigate('/') 등 홈으로 이동
-    } catch {
+      const result = await api.post('/v1/auth/login', {
+        email: form.id.trim(),
+        password: form.password,
+      });
+
+      if (!result?.accessToken) {
+        setError('로그인 응답을 확인할 수 없습니다. 다시 시도해주세요.');
+        setStatus('idle');
+        return;
+      }
+
+      saveAuthSession(result, autoLogin);
+    } catch (err) {
+      const httpStatus = err.response?.status;
+
+      setError(
+        httpStatus === 401
+          ? '이메일 또는 비밀번호가 맞지 않습니다.'
+          : '로그인하지 못했습니다. 잠시 후 다시 시도해주세요.',
+      );
       setStatus('idle');
-      setError('잘못된 비밀번호입니다. 다시시도하세요.');
+      return;
+    }
+
+    await dissolve(() => setStatus('loading'));
+
+    try {
+      const ownedCards = await api.get('/v1/owned-cards');
+
+      if (!Array.isArray(ownedCards)) {
+        throw new Error('Invalid owned cards response');
+      }
+
+      await dissolve(() => {
+        setCards(ownedCards.map(toOnboardingCardView));
+        setStatus('complete');
+      });
+    } catch {
+      setStatus('cards-error');
     }
   };
-
+  if (status === 'cards-error') {
+    return (
+      <div className="mx-auto flex min-h-dvh max-w-[430px] flex-col items-center justify-center gap-6 bg-neutral-100 px-5">
+        <p role="alert" className="text-center text-[#4B4B4B]">
+          로그인은 완료됐지만 카드 정보를 불러오지 못했어요.
+          <br />
+          홈에서 다시 확인해주세요.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="rounded-lg bg-[#A3B1FF] px-6 py-3 text-[#3B426B]"
+        >
+          홈으로 가기
+        </button>
+      </div>
+    );
+  }
   /* 로그인 완료 → 카드 정보 불러오는 화면 */
   if (status === 'loading' || status === 'complete') {
     return <LoginResult cards={cards} loading={status === 'loading'} />;
@@ -207,7 +287,11 @@ export default function Login() {
               </span>
               자동 로그인
             </label>
-            <button type="button" className="cursor-pointer">
+            <button
+              type="button"
+              className="cursor-pointer"
+              onClick={() => setError('현재 비밀번호 찾기는 제공하지 않아요.')}
+            >
               비밀번호 찾기
             </button>
           </div>
@@ -216,7 +300,7 @@ export default function Login() {
         {/* 하단 버튼 */}
         <button
           type="submit"
-          disabled={!isValid}
+          disabled={!isValid || status !== 'idle'}
           className={cn(
             'mt-auto mb-11 h-12 h-[54px] cursor-pointer items-center justify-center rounded-[8px] p-[10px] text-[20px] font-semibold transition-colors group-has-[input[name]:focus]:rounded-[27px]',
             isValid
@@ -224,7 +308,7 @@ export default function Login() {
               : 'bg-[#DBE1FF] text-[#B2BEFF]',
           )}
         >
-          로그인
+          {status === 'authenticating' ? '로그인 중...' : '로그인'}
         </button>
       </form>
     </div>
