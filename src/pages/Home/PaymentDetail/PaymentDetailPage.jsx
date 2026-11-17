@@ -1,6 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { X } from 'lucide-react';
+import Toast from '@/components/common/Toast';
 import PageHeader from '@/components/layout/PageHeader';
+import useConfirmRecommendation, {
+  isNoRecommendedCardError,
+  isRecommendationNotFoundError,
+} from '@/hooks/useConfirmRecommendation';
 import { cn } from '@/utils/cn';
 import CardUsageAmountScreen from './CardUsageAmountScreen';
 import CardUsageSheet from './CardUsageSheet';
@@ -171,6 +177,12 @@ export default function PaymentDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   // 카드 사용 현황을 알려줘 다시 계산한 카드 id
   const [verifiedCardIds, setVerifiedCardIds] = useState([]);
+  // 결제 확인 대기 기록 생성 (4-7)
+  const { mutate: confirmPayment, isPending: isConfirming } =
+    useConfirmRecommendation();
+  // 대기 기록 생성 실패 안내 { title, description }
+  const [confirmError, setConfirmError] = useState(null);
+  const closeConfirmError = useCallback(() => setConfirmError(null), []);
 
   // TODO: API 연동 시 혜택 계산 요청이 끝나면 로딩을 끝냅니다. 지금은 잠깐 기다리는 것으로 대신합니다.
   useEffect(() => {
@@ -298,19 +310,30 @@ export default function PaymentDetailPage() {
         </button>
         <button
           type="button"
-          disabled={isLoading}
-          // TODO: API 연동 시 선택한 카드로 결제 완료를 서버에 기록합니다.
+          disabled={isLoading || isConfirming}
+          // 결제 완료가 아니라 대기 기록만 만듭니다. 실제 결제 여부는 홈의 결제 확인 카드에서 받습니다.
+          // TODO: 4-5 추천 요청 연동 후 payment.id 자리에 서버의 recommendationId를 넣습니다.
           onClick={() =>
-            navigate('/', {
-              replace: true,
-              state: {
-                recordedPayment: {
-                  id: payment.id,
-                  place: payment.place,
-                  category: payment.category,
-                  discount: selectedCard.discount,
-                },
-              },
+            confirmPayment(payment.id, {
+              onSuccess: () => navigate('/', { replace: true }),
+              onError: (error) =>
+                setConfirmError(
+                  isNoRecommendedCardError(error)
+                    ? {
+                        title: '기록할 추천 카드가 없어요',
+                        description:
+                          '혜택이 계산된 카드가 없어 기록하지 않았어요',
+                      }
+                    : isRecommendationNotFoundError(error)
+                      ? {
+                          title: '추천 정보를 찾을 수 없어요',
+                          description: '처음부터 다시 추천받아 주세요',
+                        }
+                      : {
+                          title: '기록하지 못했어요',
+                          description: '잠시 후 다시 시도해 주세요',
+                        },
+                ),
             })
           }
           className="flex h-[54px] flex-1 items-center justify-center rounded-[8px] bg-[#A3B1FF] font-['Pretendard'] text-[20px] leading-[120%] font-[600] text-[#3B426B]"
@@ -318,6 +341,21 @@ export default function PaymentDetailPage() {
           바로 결제
         </button>
       </div>
+
+      {confirmError && (
+        <Toast
+          icon={
+            <span className="flex size-[24px] items-center justify-center rounded-full bg-[#E46A5E]">
+              <X className="size-[18px] text-[#FAFAFA]" strokeWidth={2} />
+            </span>
+          }
+          title={<span className="text-[#EE695D]">{confirmError.title}</span>}
+          description={confirmError.description}
+          hasArrow={false}
+          onClick={closeConfirmError}
+          onClose={closeConfirmError}
+        />
+      )}
 
       {usageInput === 'sheet' && (
         <CardUsageSheet
