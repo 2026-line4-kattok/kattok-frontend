@@ -3,7 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Toast from '@/components/common/Toast';
 import BottomNav from '@/components/layout/BottomNav';
-import { CATEGORIES, getCategoryIcon } from '@/constants/categories';
+import { getCategoryIcon } from '@/constants/categories';
+import useMerchantCategories from '@/hooks/useMerchantCategories';
 import useHome from '@/hooks/useHome';
 import useRecentMerchants from '@/hooks/useRecentMerchants';
 import { cn } from '@/utils/cn';
@@ -136,6 +137,13 @@ export default function HomePage() {
   );
   // 홈 요약 (결제 확인 카드·이번 달 챙긴 혜택). 홈에 들어올 때마다 다시 받아옵니다.
   const { data: home, isPending, isError, refetch } = useHome();
+  // 업종 칩 (개수·순서·ID는 서버 응답 기준)
+  const {
+    data: categories = [],
+    isPending: isCategoriesPending,
+    isError: isCategoriesError,
+    refetch: refetchCategories,
+  } = useMerchantCategories();
   // 최근 결제한 곳 (최대 3개). 실패하면 홈 전체가 아닌 이 영역에서 재시도를 안내합니다.
   const {
     data: recentMerchants = [],
@@ -229,28 +237,58 @@ export default function HomePage() {
           <h2 className="font-['Pretendard'] text-[16px] leading-[140%] font-medium text-[#6E6E6E]">
             업종으로 고르기
           </h2>
-          <ul className="grid min-h-[200px] w-full grid-cols-4 content-start justify-items-center gap-y-1 rounded-[8px] bg-[#FAFAFA] px-3 pt-2 pb-3 shadow-[0_0_12px_2px_rgba(0,0,0,0.02)] max-phone-xs:px-1">
-            {CATEGORIES.map(({ label, icon }) => (
-              <li key={label}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigate(AMOUNT_PATH, { state: { category: label } })
-                  }
-                  className="flex w-full flex-col items-center gap-y-[4px]"
-                >
-                  <img
-                    src={icon}
-                    alt=""
-                    className="size-[64px] object-contain max-phone-xs:size-[52px]"
-                  />
-                  <span className="text-center font-['Pretendard'] text-[14px] leading-[140%] font-normal break-keep text-[#8E8E8E] max-phone-s:text-[13px] max-phone-xs:text-[12px]">
-                    {label}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          {isCategoriesPending ||
+          isCategoriesError ||
+          categories.length === 0 ? (
+            <div className="flex min-h-[200px] w-full flex-col items-center justify-center gap-[12px] rounded-[8px] bg-[#FAFAFA] font-['Pretendard'] text-[16px] leading-[140%] text-[#8E8E8E] shadow-[0_0_12px_2px_rgba(0,0,0,0.02)]">
+              {isCategoriesPending ? (
+                <p>업종을 불러오는 중이에요</p>
+              ) : isCategoriesError ? (
+                <>
+                  <p>업종을 불러오지 못했어요</p>
+                  <button
+                    type="button"
+                    onClick={() => refetchCategories()}
+                    className="rounded-[27px] bg-[#121212] px-[16px] py-[8px] text-[#FAFAFA]"
+                  >
+                    다시 시도
+                  </button>
+                </>
+              ) : (
+                <p>선택할 수 있는 업종이 없어요</p>
+              )}
+            </div>
+          ) : (
+            <ul className="grid min-h-[200px] w-full grid-cols-4 content-start justify-items-center gap-y-1 rounded-[8px] bg-[#FAFAFA] px-3 pt-2 pb-3 shadow-[0_0_12px_2px_rgba(0,0,0,0.02)] max-phone-xs:px-1">
+              {categories.map(({ id, name, icon }) => (
+                <li key={id}>
+                  <button
+                    type="button"
+                    // 업종만 고르면 merchantId 없이 categoryId만 보냅니다.
+                    onClick={() =>
+                      navigate(AMOUNT_PATH, {
+                        state: { categoryId: id, category: name },
+                      })
+                    }
+                    className="flex w-full flex-col items-center gap-y-[4px]"
+                  >
+                    {icon ? (
+                      <img
+                        src={icon}
+                        alt=""
+                        className="size-[64px] object-contain max-phone-xs:size-[52px]"
+                      />
+                    ) : (
+                      <span className="size-[64px] bg-[repeating-conic-gradient(#e6e6e6_0_25%,#f1f1f1_0_50%)] bg-size-[14px_14px] max-phone-xs:size-[52px]" />
+                    )}
+                    <span className="text-center font-['Pretendard'] text-[14px] leading-[140%] font-normal break-keep text-[#8E8E8E] max-phone-s:text-[13px] max-phone-xs:text-[12px]">
+                      {name}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section className="w-full">

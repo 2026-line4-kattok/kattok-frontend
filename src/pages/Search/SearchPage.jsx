@@ -2,7 +2,8 @@ import { X } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SearchIcon } from '@/assets/icons/icons';
-import { CATEGORIES, getCategoryIcon } from '@/constants/categories';
+import { getCategoryIcon } from '@/constants/categories';
+import useMerchantCategories from '@/hooks/useMerchantCategories';
 import useRecentMerchants from '@/hooks/useRecentMerchants';
 import { cn } from '@/utils/cn';
 
@@ -25,6 +26,13 @@ function CategoryThumbnail({ category }) {
 export default function SearchPage() {
   const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
+  // 업종 칩 (개수·순서·ID는 서버 응답 기준)
+  const {
+    data: categories = [],
+    isPending: isCategoriesPending,
+    isError: isCategoriesError,
+    refetch: refetchCategories,
+  } = useMerchantCategories();
 
   const {
     data: recentMerchants = [],
@@ -77,26 +85,54 @@ export default function SearchPage() {
           <p className="mt-[2px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] text-[#B3B3B3]">
             매장 전용 혜택은 빼고 계산해요
           </p>
-          <ul className="-mx-[18px] mt-[20px] flex [scrollbar-width:none] gap-[22px] overflow-x-auto px-[18px] max-phone-xs:-mx-3 max-phone-xs:px-3 [&::-webkit-scrollbar]:hidden">
-            {CATEGORIES.map(({ label, icon }) => (
-              <li key={label} className="shrink-0">
-                <button
-                  type="button"
-                  onClick={() => goToAmount({ category: label })}
-                  className="flex w-[60px] flex-col items-center gap-[4px]"
-                >
-                  <img
-                    src={icon}
-                    alt=""
-                    className="size-[64px] object-contain"
-                  />
-                  <span className="font-['Pretendard'] text-[14px] leading-[140%] font-[400] whitespace-nowrap text-[#8E8E8E]">
-                    {label}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          {isCategoriesPending ? (
+            <p className="mt-[20px] text-center font-['Pretendard'] text-[14px] leading-[140%] text-[#8E8E8E]">
+              업종을 불러오는 중이에요
+            </p>
+          ) : isCategoriesError ? (
+            <div className="mt-[20px] flex flex-col items-center gap-[12px] font-['Pretendard'] text-[14px] leading-[140%] text-[#8E8E8E]">
+              <p>업종을 불러오지 못했어요</p>
+              <button
+                type="button"
+                onClick={() => refetchCategories()}
+                className="rounded-[27px] bg-[#121212] px-[16px] py-[8px] text-[#FAFAFA]"
+              >
+                다시 시도
+              </button>
+            </div>
+          ) : categories.length === 0 ? (
+            <p className="mt-[20px] text-center font-['Pretendard'] text-[14px] leading-[140%] text-[#8E8E8E]">
+              선택할 수 있는 업종이 없어요
+            </p>
+          ) : (
+            <ul className="-mx-[18px] mt-[20px] flex [scrollbar-width:none] gap-[22px] overflow-x-auto px-[18px] max-phone-xs:-mx-3 max-phone-xs:px-3 [&::-webkit-scrollbar]:hidden">
+              {categories.map(({ id, name, icon }) => (
+                <li key={id} className="shrink-0">
+                  <button
+                    type="button"
+                    // 업종만 고르면 merchantId 없이 categoryId만 보냅니다.
+                    onClick={() =>
+                      goToAmount({ categoryId: id, category: name })
+                    }
+                    className="flex w-[60px] flex-col items-center gap-[4px]"
+                  >
+                    {icon ? (
+                      <img
+                        src={icon}
+                        alt=""
+                        className="size-[64px] object-contain"
+                      />
+                    ) : (
+                      <span className="size-[64px] bg-[repeating-conic-gradient(#e6e6e6_0_25%,#f6f6f6_0_50%)] bg-size-[12px_12px]" />
+                    )}
+                    <span className="font-['Pretendard'] text-[14px] leading-[140%] font-[400] whitespace-nowrap text-[#8E8E8E]">
+                      {name}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section className="mt-[48px] flex flex-col">
