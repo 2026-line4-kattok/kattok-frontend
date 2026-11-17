@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { toOwnedCardView } from '@/pages/Card/ownedCardMapper';
+import { toOnboardingCardView } from './onboardingCardImages';
 import { useLocation, useNavigate } from 'react-router';
 import { ChevronLeft, Check } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -22,6 +22,7 @@ import help from '@/assets/onboarding/help.svg';
 import api from '@/api/axiosInstance';
 import { getSpendingOptions, registerProduct } from './signupPerformance';
 import { saveAuthSession } from './authSession';
+import { dissolve } from './dissolve';
 import PolicyService from '@/pages/Mypage/PolicyService';
 import PolicyPrivacy from '@/pages/Mypage/PolicyPrivacy';
 const STEPS = [1, 2, 3, 4];
@@ -158,7 +159,7 @@ function Thumb({ src, text, className }) {
 }
 
 /* 회원가입 완료 / 불러오기 완료 화면 공통 상단 */
-function LandscapeCard({ src, text, className }) {
+function LandscapeCard({ src, text, className, isHorizontal = false }) {
   return (
     <div
       className={cn(
@@ -169,7 +170,7 @@ function LandscapeCard({ src, text, className }) {
       <Thumb
         src={src}
         text={text}
-        className="absolute top-1/2 left-1/2 h-[157.45%] w-[63.51%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-270"
+        className={isHorizontal ? 'h-full w-full' : 'absolute top-1/2 left-1/2 h-[157.45%] w-[63.51%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-270'}
       />
     </div>
   );
@@ -334,7 +335,7 @@ export default function Signup() {
 
         setProducts(
           result.map((product) => {
-            const view = toOwnedCardView({
+            const view = toOnboardingCardView({
               id: product.id,
               product: {
                 ...product,
@@ -439,8 +440,10 @@ export default function Signup() {
       }
 
       saveAuthSession(result);
-      setForm({ id: '', password: '' });
-      setStep(2);
+      await dissolve(() => {
+        setForm({ id: '', password: '' });
+        setStep(2);
+      });
     } catch (err) {
       setSignupError(
         err.response?.data?.message ||
@@ -490,7 +493,7 @@ export default function Signup() {
       const registered = await registerProduct(api, product, selection);
       if (!registered?.id || registered.product?.id !== product.id)
         throw new Error('등록 결과를 확인하지 못했어요. 다시 시도해주세요.');
-      setScreen('done');
+      await dissolve(() => setScreen('done'));
     } catch (error) {
       setCatalogError(
         error.response?.data?.message ||
@@ -584,6 +587,7 @@ export default function Signup() {
         </p>
         <LandscapeCard
           src={selectedCard?.image}
+          isHorizontal={selectedCard?.isHorizontal}
           text={selectedCard?.name ?? '카드'}
           className="mt-6 w-[calc(100%-24px)] shrink-0 rounded-[14px]"
         />
@@ -617,11 +621,6 @@ export default function Signup() {
     >
       {/* 상단: 뒤로가기 + 스텝 인디케이터 + 건너뛰기 */}
       <header className="relative mt-[62px] flex h-14 shrink-0 items-center">
-        {catalogError && (
-          <p role="alert" className="my-4 text-[14px] text-[#EE695D]">
-            {catalogError}
-          </p>
-        )}
         <button type="button" onClick={handleBack} aria-label="뒤로 가기">
           <ChevronLeft className="size-6 cursor-pointer text-[#CACACA]" />
         </button>
@@ -655,6 +654,10 @@ export default function Signup() {
           </button>
         )}
       </header>
+
+      {catalogError && step !== 3 && (
+        <p role="alert" className="my-4 text-[14px] text-[#EE695D]">{catalogError}</p>
+      )}
 
       {/* 1단계: 아이디 / 비밀번호 */}
       {step === 1 && (
@@ -741,7 +744,7 @@ export default function Signup() {
               onClick={() => setPolicy('privacy')}
               className="cursor-pointer"
             >
-              개인정보 처리방침 보기
+              개인정보 처리 동의
             </button>
           </div>
 
@@ -877,6 +880,18 @@ export default function Signup() {
             ))}
           </div>
 
+          {(selecting || registering || catalogError) && (
+            <div className="sticky top-0 z-10 bg-[#F1F1F1] py-3 text-[14px]">
+              {catalogError ? (
+                <p role="alert" className="text-[#EE695D]">{catalogError}</p>
+              ) : (
+                <p role="status" className="text-[#4B4B4B]">
+                  {registering ? '카드를 등록하고 있어요...' : '카드의 실적 조건을 확인하고 있어요...'}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="mt-[30px] pb-6">
             {query.trim() === '' && (
               <div className="grid grid-cols-3 gap-x-3 gap-y-[18px]">
@@ -901,10 +916,15 @@ export default function Signup() {
                         <Thumb
                           src={c.image}
                           text=""
-                          className="h-full w-full"
+                          className={c.isHorizontal ? 'absolute top-1/2 left-1/2 h-[63.33%] w-[157.89%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-90' : 'h-full w-full'}
                         />
                         {isSelected && (
                           <div className="absolute inset-0 bg-[#3B426BBF]" />
+                        )}
+                        {isSelected && (selecting || registering) && (
+                          <span className="absolute inset-0 flex items-center justify-center text-[14px] text-white">
+                            {registering ? '등록 중...' : '확인 중...'}
+                          </span>
                         )}
                       </div>
                       <span
@@ -914,7 +934,6 @@ export default function Signup() {
                         )}
                       >
                         {c.name.replace(' ', '\n')}
-                        {c.owned && ' (\uB4F1\uB85D\uB428)'}
                       </span>
                     </button>
                   );
@@ -946,12 +965,11 @@ export default function Signup() {
                       <img
                         src={c.image}
                         alt=""
-                        className="absolute top-1/2 left-1/2 h-[148px] w-[94px] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-270 object-contain"
+                        className={c.isHorizontal ? 'h-full w-full object-contain' : 'absolute top-1/2 left-1/2 h-[148px] w-[94px] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-270 object-contain'}
                       />
                     </div>
                     <span className="flex min-w-0 flex-1 items-center justify-center px-3 text-center text-[14px] text-[#8E8E8E]">
                       {c.name}
-                      {c.owned && ' (\uB4F1\uB85D\uB428)'}
                     </span>
                   </button>
                 ))}
@@ -993,6 +1011,7 @@ export default function Signup() {
           <div className="mt-12 flex h-[96px] shrink-0 items-center overflow-hidden rounded-[8px] bg-[#EBEBEB]">
             <LandscapeCard
               src={selectedCard?.image}
+              isHorizontal={selectedCard?.isHorizontal}
               text=""
               className="w-[152px] shrink-0"
             />

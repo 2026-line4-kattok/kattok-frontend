@@ -8,13 +8,14 @@ import eyeclose from '@/assets/onboarding/eyeclose.svg';
 import warning from '@/assets/onboarding/Warning.svg';
 
 import LoginResult from './LoginResult';
+import { dissolve } from './dissolve';
 import {
   canRestoreAutoLogin,
   clearAuthSession,
   saveAuthSession,
 } from './authSession';
 
-import { toOwnedCardView } from '@/pages/Card/ownedCardMapper';
+import { toOnboardingCardView } from './onboardingCardImages';
 
 /*
 상단 아이디, 비밀번호*/
@@ -104,8 +105,10 @@ export default function Login() {
         if (!Array.isArray(ownedCards))
           throw new Error('Invalid owned cards response');
         if (controller.signal.aborted) return;
-        setCards(ownedCards.map(toOwnedCardView));
-        setStatus('complete');
+        void dissolve(() => {
+          setCards(ownedCards.map(toOnboardingCardView));
+          setStatus('complete');
+        });
       })
       .catch((error) => {
         if (controller.signal.aborted) return;
@@ -166,7 +169,7 @@ export default function Login() {
       return;
     }
 
-    setStatus('loading');
+    await dissolve(() => setStatus('loading'));
 
     try {
       const ownedCards = await api.get('/v1/owned-cards');
@@ -175,8 +178,10 @@ export default function Login() {
         throw new Error('Invalid owned cards response');
       }
 
-      setCards(ownedCards.map(toOwnedCardView));
-      setStatus('complete');
+      await dissolve(() => {
+        setCards(ownedCards.map(toOnboardingCardView));
+        setStatus('complete');
+      });
     } catch {
       setStatus('cards-error');
     }
