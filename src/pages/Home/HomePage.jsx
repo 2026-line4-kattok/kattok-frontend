@@ -6,9 +6,9 @@ import hanaKPassCheckImage from '@/assets/card/하나 K패스 체크카드.png';
 import Toast from '@/components/common/Toast';
 import BottomNav from '@/components/layout/BottomNav';
 import { CATEGORIES, getCategoryIcon } from '@/constants/categories';
+import useHome from '@/hooks/useHome';
 
-// TODO: API 연동 시 서버 데이터로 교체합니다.
-const MONTHLY_BENEFIT = 12400;
+// TODO: GET /merchants/recent 연동 시 서버 데이터로 교체합니다.
 const RECENT_PAYMENTS = [
   {
     id: 1,
@@ -27,16 +27,6 @@ const RECENT_PAYMENTS = [
     cardImage: hanaKPassCheckImage,
   },
 ];
-
-// 이전에 카드 추천을 받았지만 결제 완료 기록을 하지 않은 건
-// TODO: API 연동 시 서버 데이터로 교체합니다. (개발 중이라 기본으로 노출)
-const PENDING_PAYMENT = {
-  id: 1,
-  cardName: 'KB 국민 노리2',
-  place: '스타벅스',
-  category: '카페',
-  amount: 30000,
-};
 
 const AMOUNT_PATH = '/payment/amount';
 
@@ -151,19 +141,23 @@ export default function HomePage() {
   const [recordedPayment, setRecordedPayment] = useState(
     location.state?.recordedPayment ?? null,
   );
-  // TODO: API 연동 시 서버에서 갱신된 혜택 금액을 받아옵니다.
-  const [monthlyBenefit] = useState(
-    MONTHLY_BENEFIT + (location.state?.recordedPayment?.discount ?? 0),
+  // 홈 요약 (결제 확인 카드·이번 달 챙긴 혜택). 홈에 들어올 때마다 다시 받아옵니다.
+  const { data: home, isPending, isError, refetch } = useHome();
+  const monthlyBenefit = home?.savedBenefit.amount;
+  // 화면에서 [네]/[X]로 처리한 결제건. 결제 확인 API 연동 전까지 화면에서만 숨깁니다.
+  const [dismissedPaymentId, setDismissedPaymentId] = useState(
+    location.state?.recordedPayment?.id ?? null,
   );
-  const [pendingPayment, setPendingPayment] = useState(
-    recordedPayment?.id === PENDING_PAYMENT.id ? null : PENDING_PAYMENT,
-  );
+  const pendingPayment =
+    home?.pendingPayment && home.pendingPayment.id !== dismissedPaymentId
+      ? home.pendingPayment
+      : null;
   // 결제 기록을 거부한 결제건 (토스트에 업종 아이콘을 보여주기 위해 보관)
   const [rejectedPayment, setRejectedPayment] = useState(null);
   const closeRejectToast = useCallback(() => setRejectedPayment(null), []);
   const closeRecordToast = useCallback(() => setRecordedPayment(null), []);
 
-  // 새로고침·뒤로 가기 시 금액이 다시 더해지지 않도록 전달받은 state를 비웁니다.
+  // 새로고침·뒤로 가기 시 토스트가 다시 뜨지 않도록 전달받은 state를 비웁니다.
   useEffect(() => {
     if (location.state?.recordedPayment) {
       navigate(location.pathname, { replace: true, state: null });
@@ -171,10 +165,29 @@ export default function HomePage() {
   }, [location.pathname, location.state, navigate]);
 
   const handleRejectPayment = () => {
-    // TODO: API 연동 시 결제 거부 여부를 서버에 기록합니다.
+    // TODO: PUT /recommendations/{id}/payment (NOT_PAID) 연동 후 홈을 다시 조회합니다.
     setRejectedPayment(pendingPayment);
-    setPendingPayment(null);
+    setDismissedPaymentId(pendingPayment.id);
   };
+
+  // 조회 실패(5xx 등)는 빈 홈으로 숨기지 않고 다시 시도 안내를 보여 줍니다.
+  if (isError) {
+    return (
+      <div className="min-h-dvh bg-[#F1F1F1]">
+        <main className="mx-auto flex min-h-dvh w-full max-w-[402px] flex-col items-center justify-center gap-[12px] px-[18px] pb-[calc(80px+max(28px,env(safe-area-inset-bottom)))] text-center font-['Pretendard'] text-[16px] leading-[140%] text-[#8E8E8E]">
+          <p>홈 정보를 불러오지 못했어요</p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="rounded-[27px] bg-[#121212] px-[16px] py-[8px] text-[#FAFAFA]"
+          >
+            다시 시도
+          </button>
+        </main>
+        <BottomNav />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-[#F1F1F1]">
@@ -198,16 +211,18 @@ export default function HomePage() {
               이번 달 카똑으로 챙긴 혜택
             </span>
             <span className="shrink-0 font-['Pretendard'] text-[24px] leading-[120%] font-semibold whitespace-nowrap text-[#8C9EFF] max-phone-m:text-[20px] max-phone-s:text-[18px]">
-              {monthlyBenefit.toLocaleString('ko-KR')}원
+              {isPending
+                ? '-'
+                : `${monthlyBenefit.toLocaleString('ko-KR')}원`}
             </span>
           </button>
           {pendingPayment && (
             <PendingPaymentCard
               payment={pendingPayment}
               onMore={() => navigate(`/payment/${pendingPayment.id}`)}
-              // TODO: API 연동 시 결제 여부를 서버에 기록합니다.
               onReject={handleRejectPayment}
-              onConfirm={() => setPendingPayment(null)}
+              // TODO: PUT /recommendations/{id}/payment (PAID_RECOMMENDED) 연동 후 홈을 다시 조회합니다.
+              onConfirm={() => setDismissedPaymentId(pendingPayment.id)}
             />
           )}
         </div>
