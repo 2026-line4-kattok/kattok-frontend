@@ -15,6 +15,10 @@ import bc from '@/assets/onboarding/bc카드.png';
 import ss from '@/assets/onboarding/삼성카드.png';
 import hd from '@/assets/onboarding/현대.png';
 import ts from '@/assets/onboarding/토스.png';
+import ibk from '@/assets/onboarding/IBK.png';
+import lotte from '@/assets/onboarding/롯데카드.png';
+import kakao from '@/assets/onboarding/카카오뱅크.png';
+import kbank from '@/assets/onboarding/케이뱅크.png';
 
 import search from '@/assets/onboarding/Search.svg';
 
@@ -27,7 +31,7 @@ import PolicyService from '@/pages/Mypage/PolicyService';
 import PolicyPrivacy from '@/pages/Mypage/PolicyPrivacy';
 const STEPS = [1, 2, 3, 4];
 
-// 로고 연결용 정보입니다. 카드사 목록과 순서는 서버 응답을 사용합니다.
+// 화면 표시 순서·이름·로고입니다. 선택 시에는 서버의 카드사 ID를 사용합니다.
 const COMPANIES = [
   { id: 'kb', name: '국민은행', cardLabel: '국민카드', logo: kb },
   { id: 'woori', name: '우리은행', cardLabel: '우리카드', logo: wr },
@@ -37,6 +41,10 @@ const COMPANIES = [
   { id: 'samsung', name: '삼성카드', cardLabel: '삼성카드', logo: ss },
   { id: 'hyundai', name: '현대카드', cardLabel: '현대카드', logo: hd },
   { id: 'toss', name: '토스뱅크', cardLabel: '토스뱅크 카드', logo: ts },
+  { id: 'ibk', name: 'IBK카드',  logo: ibk },
+  { id: 'lotte', name: '롯데카드', logo: lotte },
+  { id: 'kakao', name: '카카오뱅크', logo: kakao },
+  { id: 'kbank', name: '케이뱅크', logo: kbank },
 ];
 
 const FILTERS = ['전체', '신용카드', '체크카드'];
@@ -279,15 +287,19 @@ export default function Signup() {
           issuers.map((issuer) => {
             const companyInfo = COMPANIES.find(
               (item) =>
-                normalizeIssuer(item.name) === normalizeIssuer(issuer.name),
+                [item.name, ...(item.aliases ?? [])].some((name) =>
+                  normalizeIssuer(name) === normalizeIssuer(issuer.name),
+                ),
             );
 
             return {
               ...issuer,
+              name: companyInfo?.name ?? issuer.name,
               logo: companyInfo?.logo,
               cardLabel: issuer.name,
+              displayOrder: companyInfo ? COMPANIES.indexOf(companyInfo) : COMPANIES.length,
             };
-          }),
+          }).sort((a, b) => a.displayOrder - b.displayOrder),
         );
       } catch {
         if (!cancelled) {
