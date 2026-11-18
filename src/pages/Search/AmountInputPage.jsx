@@ -1,32 +1,48 @@
+import { X } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import Toast from '@/components/common/Toast';
 import AmountKeypad, { AmountDisplay } from '@/components/common/AmountKeypad';
 import useAmountInput from '@/hooks/useAmountInput';
 import PageHeader from '@/components/layout/PageHeader';
 import { getCategoryIcon } from '@/constants/categories';
 import {
-  createPaymentDetail,
-  hasBenefit,
-} from '@/pages/Home/PaymentDetail/paymentDetailData';
+  getRecommendationErrorMessage,
+  useCreateRecommendation,
+} from '@/hooks/useRecommendation';
+
+// 추천 요청 금액 범위 (4-5)
+const MAX_RECOMMEND_AMOUNT = 10_000_000;
 
 export default function AmountInputPage() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const { amount, appendDigit, removeDigit, addAmount } = useAmountInput();
+  const { mutate: recommend, isPending: isRecommending } =
+    useCreateRecommendation();
+  // 추천 실패 안내 { title, description }
+  const [errorToast, setErrorToast] = useState(null);
+  const closeErrorToast = useCallback(() => setErrorToast(null), []);
 
   // 검색 화면을 거치지 않고 들어오면 장소 정보가 없으므로 돌려보냅니다.
   if (!state?.place && !state?.category) {
     return <Navigate to="/search" replace />;
   }
 
-  const { place, category } = state;
+  const { place, category, merchantId, categoryId } = state;
+  const isOverMax = amount > MAX_RECOMMEND_AMOUNT;
   const title = place ?? category;
   const categoryIcon = getCategoryIcon(category);
 
   const handleSave = () => {
-    // TODO: API 연동 시 결제 기록(장소, 업종, 금액)을 서버에 저장하고 혜택 계산 결과를 받아옵니다.
-    const payment = createPaymentDetail({ place, category, amount });
-    // 받을 수 있는 혜택이 있으면 혜택 금액 확인 화면으로 이어집니다.
-    navigate(hasBenefit(payment) ? `/payment/${payment.id}` : '/');
+    // 결제처를 골랐으면 merchantId만, 업종 칩으로 골랐으면 categoryId만 보냅니다.
+    const body =
+      merchantId != null ? { merchantId, amount } : { categoryId, amount };
+    recommend(body, {
+      // 혜택 없음·계산 불가도 결과 화면에서 안내합니다.
+      onSuccess: (data) => navigate(`/payment/${data.id}`),
+      onError: (error) => setErrorToast(getRecommendationErrorMessage(error)),
+    });
   };
 
   return (
@@ -84,12 +100,32 @@ export default function AmountInputPage() {
         <button
           type="button"
           onClick={handleSave}
-          disabled={amount === 0}
+          disabled={amount === 0 || isOverMax || isRecommending}
           className="flex h-[54px] w-full items-center justify-center rounded-[27px] bg-[#A3B1FF] font-['Pretendard'] text-[20px] leading-[120%] font-[600] text-[#3B426B] disabled:bg-[#DBE1FF] disabled:text-[#B2BEFF]"
         >
-          저장하기
+          {isRecommending ? '계산하는 중이에요' : '저장하기'}
         </button>
+        {isOverMax && (
+          <p className="mt-[8px] text-center font-['Pretendard'] text-[14px] leading-[140%] text-[#EE695D]">
+            1,000만 원까지 추천받을 수 있어요
+          </p>
+        )}
       </div>
+
+      {errorToast && (
+        <Toast
+          icon={
+            <span className="flex size-[24px] items-center justify-center rounded-full bg-[#E46A5E]">
+              <X className="size-[18px] text-[#FAFAFA]" strokeWidth={2} />
+            </span>
+          }
+          title={<span className="text-[#EE695D]">{errorToast.title}</span>}
+          description={errorToast.description}
+          hasArrow={false}
+          onClick={closeErrorToast}
+          onClose={closeErrorToast}
+        />
+      )}
     </div>
   );
 }
