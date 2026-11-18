@@ -9,6 +9,9 @@ import useConfirmRecommendation, {
 } from '@/hooks/useConfirmRecommendation';
 import useOwnedCards from '@/hooks/useOwnedCards';
 import useOwnedCardState from '@/hooks/useOwnedCardState';
+import useSavePaymentResult, {
+  PAYMENT_RESULT,
+} from '@/hooks/useSavePaymentResult';
 import useRecommendation, {
   getRecommendationErrorMessage,
   useCreateRecommendation,
@@ -16,6 +19,7 @@ import useRecommendation, {
 import useUpdateOwnedCardState from '@/hooks/useUpdateOwnedCardState';
 import { toOwnedCardStateRequest } from '@/pages/Card/ownedCardMapper';
 import { cn } from '@/utils/cn';
+import { getPaymentErrorMessage } from '@/utils/paymentResultMessage';
 import CardUsageAmountScreen from './CardUsageAmountScreen';
 import CardUsageSheet from './CardUsageSheet';
 import PaymentDetailSkeleton from './PaymentDetailSkeleton';
@@ -24,7 +28,16 @@ import { formatWon } from './paymentDetailData';
 import {
   toRecommendationRequest,
   toRecommendationView,
+  UNREGISTERED_CARD_ID,
 } from './recommendationMapper';
+
+// 결제 카드 변경에서 고른 '미등록 카드' (혜택을 계산할 수 없는 카드)
+const UNREGISTERED_CARD = {
+  id: UNREGISTERED_CARD_ID,
+  name: '미등록 카드',
+  isHorizontal: true,
+  isUnregistered: true,
+};
 
 const TEXT_14 = "font-['Pretendard'] text-[14px] leading-[140%] font-[400]";
 const TEXT_16 = "font-['Pretendard'] text-[16px] leading-[140%] font-[500]";
@@ -53,7 +66,37 @@ function CardImage({ card, width, height, vertical = false }) {
           }
         />
       )}
+      {/* 이미지가 없는 카드(미등록 카드 등)는 마그네틱 띠가 있는 회색 카드로 보여 줍니다. */}
+      {!card.image && (
+        <span
+          className={cn(
+            'absolute bg-[#D9D9D9]',
+            vertical
+              ? 'inset-y-0 right-[14%] w-[13%]'
+              : 'inset-x-0 top-[14%] h-[13%]',
+          )}
+        />
+      )}
     </span>
+  );
+}
+
+// 미등록 카드를 고르면 혜택을 계산할 수 없다고 안내합니다. (홈 43)
+function UnregisteredCalculation() {
+  return (
+    <section className="flex w-full flex-col gap-[12px]">
+      <h2 className={cn('text-[#6E6E6E]', TEXT_16)}>이렇게 계산했어요</h2>
+      <div className="flex w-full flex-col items-center gap-[12px] rounded-[8px] bg-[#FAFAFA] px-[24px] py-[20px] text-center shadow-[0_0_12px_2px_rgba(0,0,0,0.02)] max-phone-m:px-4">
+        <p className={cn('break-keep text-[#8E8E8E]', TEXT_16, 'font-[400]')}>
+          미등록 카드를 선택하면
+          <br />
+          카드 혜택을 확인할 수 없어요.
+        </p>
+        <p className="font-['Pretendard'] text-[14px] leading-[140%] font-[400] break-keep text-[#B3B3B3]">
+          *결제 금액과 일시는 결제 기록에서 확인할 수 있어요.
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -374,6 +417,9 @@ export default function PaymentDetailPage() {
     useConfirmRecommendation();
   const { mutate: recommend, isPending: isRecommending } =
     useCreateRecommendation();
+  // 미등록 카드로 바로 결제하면 대기 기록을 만든 뒤 바로 PAID_UNREGISTERED로 확정합니다.
+  const { mutate: savePayment, isPending: isSavingPayment } =
+    useSavePaymentResult();
   const { mutate: saveCardState, isPending: isSavingState } =
     useUpdateOwnedCardState();
   // 사용 현황 시트를 열 때 저장된 실적·남은 한도(3-3)를 받아 질문과 선택값을 채웁니다.
@@ -398,10 +444,12 @@ export default function PaymentDetailPage() {
   const hasRecommendation =
     recommendedCardId != null &&
     (overallStatus === 'CONFIRMED' || overallStatus === 'CONDITIONAL');
-  const selectedCard =
-    cards.find((card) => card.id === selectedCardId) ??
-    cards.find((card) => card.id === recommendedCardId) ??
-    cards[0];
+  const isUnregistered = selectedCardId === UNREGISTERED_CARD_ID;
+  const selectedCard = isUnregistered
+    ? UNREGISTERED_CARD
+    : (cards.find((card) => card.id === selectedCardId) ??
+      cards.find((card) => card.id === recommendedCardId) ??
+      cards[0]);
   const otherCards = cards.filter((card) => card.id !== selectedCard?.id);
   const maxDiscount = Math.max(0, ...cards.map((card) => card.discount));
   const isRecommendedSelected = selectedCard?.id === recommendedCardId;
@@ -467,9 +515,36 @@ export default function PaymentDetailPage() {
   };
 
   // [바로 결제] → 결제 확인 대기 기록(4-7). 실제 결제 여부는 홈의 결제 확인 카드에서 받습니다.
+  // 미등록 카드: 대기 기록 생성(4-7) → 미등록 카드 결제로 확정(5-2) → 홈 44 토스트
+  const recordUnregistered = () =>
+    savePayment(
+      {
+        recommendationId: recommendation.id,
+        result: PAYMENT_RESULT.PAID_UNREGISTERED,
+      },
+      {
+        onSuccess: () =>
+          navigate('/', {
+            replace: true,
+            state: {
+              paymentToast: {
+                category: recommendation.category,
+                title: '기록했어요',
+                description: '미등록 카드로 혜택 정보가 확인되지 않았어요.',
+                variant: 'success',
+              },
+            },
+          }),
+        onError: (error) => setErrorToast(getPaymentErrorMessage(error)),
+      },
+    );
+
   const handleConfirm = () =>
     confirmPayment(recommendation.id, {
-      onSuccess: () => navigate('/', { replace: true }),
+      onSuccess: () =>
+        isUnregistered
+          ? recordUnregistered()
+          : navigate('/', { replace: true }),
       onError: (error) =>
         setErrorToast(
           isNoRecommendedCardError(error)
@@ -515,7 +590,8 @@ export default function PaymentDetailPage() {
               <div className="flex flex-col items-center gap-[8px]">
                 <p className="flex items-baseline gap-[6px]">
                   <span className="font-['Pretendard'] text-[36px] leading-[100%] font-[600] tracking-[-0.09px] text-[#121212]">
-                    {formatWon(selectedCard.discount)}
+                    {/* 미등록 카드는 혜택을 알 수 없어 ?원으로 보여 줍니다. */}
+                    {isUnregistered ? '?원' : formatWon(selectedCard.discount)}
                   </span>
                   <span className="font-['Pretendard'] text-[20px] leading-[120%] font-[400] text-[#8E8E8E]">
                     할인
@@ -537,15 +613,19 @@ export default function PaymentDetailPage() {
               </div>
             </div>
 
-            <CalculationSection
-              key={selectedCard.id}
-              card={selectedCard}
-              recommendation={recommendation}
-              onUpdateInfo={() => openUsageSheet(selectedCard.id)}
-            />
+            {isUnregistered ? (
+              <UnregisteredCalculation />
+            ) : (
+              <CalculationSection
+                key={selectedCard.id}
+                card={selectedCard}
+                recommendation={recommendation}
+                onUpdateInfo={() => openUsageSheet(selectedCard.id)}
+              />
+            )}
 
             {/* 순위를 바꿀 수 있는 가정만 최대 2개 질문합니다. */}
-            {recommendation.questions.length > 0 && (
+            {!isUnregistered && recommendation.questions.length > 0 && (
               <section className="flex w-full flex-col gap-[12px]">
                 <h2 className={cn('text-[#6E6E6E]', TEXT_16)}>
                   알려주시면 더 정확해져요
@@ -623,7 +703,7 @@ export default function PaymentDetailPage() {
             </button>
             <button
               type="button"
-              disabled={isRecalculating || isConfirming}
+              disabled={isRecalculating || isConfirming || isSavingPayment}
               onClick={handleConfirm}
               className="flex h-[54px] flex-1 items-center justify-center rounded-[8px] bg-[#A3B1FF] font-['Pretendard'] text-[20px] leading-[120%] font-[600] text-[#3B426B] disabled:opacity-60"
             >

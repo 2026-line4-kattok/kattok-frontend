@@ -6,10 +6,10 @@ import useRecommendation from '@/hooks/useRecommendation';
 import { cn } from '@/utils/cn';
 import { formatWon } from './paymentDetailData';
 import RecommendationStatusScreen from './RecommendationStatusScreen';
-import { toRecommendationView } from './recommendationMapper';
-
-// 등록하지 않은 카드로 결제한 경우 선택하는 항목
-const UNREGISTERED_CARD_ID = 'unregistered';
+import {
+  toRecommendationView,
+  UNREGISTERED_CARD_ID,
+} from './recommendationMapper';
 
 // 카드 목록 썸네일 (세로형 카드 이미지는 가로로 돌려서 보여줍니다)
 function CardThumbnail({ card }) {
@@ -145,14 +145,8 @@ export default function CardChangePage() {
       state: { selectedCardId: cardId },
     });
 
-  const handleSubmit = () => {
-    if (selectedCardId === UNREGISTERED_CARD_ID) {
-      // 추천 결과 단계에서는 결제 여부를 저장하지 않습니다. 결제 후 홈의 결제 확인 카드에서 기록합니다.
-      navigate('/');
-      return;
-    }
-    goToDetail(selectedCardId);
-  };
+  // 미등록 카드도 결과 화면(홈 43)으로 돌아가 혜택을 확인할 수 없다고 안내합니다.
+  const handleSubmit = () => goToDetail(selectedCardId);
 
   return (
     // 헤더는 고정하고 그 아래 영역만 스크롤합니다.
