@@ -1,42 +1,6 @@
 import { getUsageCaps, performanceAnswerFromAmount } from '@/utils/cardUsage';
-import emptyCardImage from '@/assets/onboarding/card/empty.png';
-
-// 카드 이미지: 파일 이름(카드명)으로 찾아 씁니다. 서버가 이미지 URL을 주면 교체합니다.
-const CARD_IMAGES = import.meta.glob('@/assets/card/*.png', {
-  eager: true,
-  import: 'default',
-});
-
-// 가로형 이미지 (나머지 카드 이미지는 세로형이라 가로로 눕혀서 보여줍니다.)
-const HORIZONTAL_IMAGE_KEYS = new Set(['kb국민은행노리2']);
-
-// 공백·기호를 지워 이름 비교를 느슨하게 합니다.
-const normalize = (value = '') =>
-  value.toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
-
-const CARD_IMAGE_ENTRIES = Object.entries(CARD_IMAGES).map(([path, src]) => ({
-  key: normalize(
-    decodeURIComponent(path)
-      .split('/')
-      .pop()
-      .replace(/\.png$/, ''),
-  ),
-  src,
-}));
-
-const findCardImage = ({ name, issuerName }) => {
-  const candidates = [normalize(name), normalize(`${issuerName}${name}`)];
-  const found =
-    CARD_IMAGE_ENTRIES.find(({ key }) => candidates.includes(key)) ??
-    CARD_IMAGE_ENTRIES.find(({ key }) =>
-      candidates.some((c) => c && (key.includes(c) || c.includes(key))),
-    );
-  if (!found) return { image: emptyCardImage, isHorizontal: true };
-  return {
-    image: found.src,
-    isHorizontal: HORIZONTAL_IMAGE_KEYS.has(found.key),
-  };
-};
+// 카드 이미지는 received 폴더 → 기존 card 폴더 순으로 찾습니다.
+import { findCardImage } from '@/utils/cardImages';
 
 const CARD_TYPE_LABEL = {
   CREDIT: '신용카드',
