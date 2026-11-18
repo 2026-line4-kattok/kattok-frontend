@@ -118,40 +118,28 @@ function PaymentHistory({
                 disabled={saving}
                 onClick={() => onEdit(item)}
               >
-                <CardImage
-                  card={item.card}
-                  className={item.unpaid ? 'opacity-50 grayscale' : ''}
-                />
+                <CardImage card={item.card} />
                 <span
-                  className={cn(
-                    'flex min-w-0 flex-1 flex-col gap-1 [&>span]:text-[14px] [&>span]:text-[#8E8E8E] [&>strong]:text-[16px] [&>strong]:font-medium',
-                    item.unpaid
-                      ? '[&>strong]:text-[#8E8E8E]'
-                      : '[&>strong]:text-[#3B426B]',
-                  )}
+                  className="flex min-w-0 flex-1 flex-col gap-1 [&>span]:text-[14px] [&>span]:text-[#8E8E8E] [&>strong]:text-[16px] [&>strong]:font-medium [&>strong]:text-[#3B426B]"
                 >
                   <strong>{item.place}</strong>
                   <span>
                     {won(item.amount)} · {item.card.name}
                   </span>
-                  {['PAID_OTHER', 'PAID_UNREGISTERED'].includes(
-                    item.result,
-                  ) && <span>추천: {item.recommendedCard?.productName}</span>}
+                  {item.result === 'PAID_OTHER' && <span>추천: {item.recommendedCard?.productName}</span>}
                 </span>
                 <strong
                   className={
                     item.unpaid
-                      ? 'text-[20px] font-semibold text-[#8E8E8E]'
-                      : 'text-[20px] font-semibold text-[#121212]'
+                      ? 'text-[18px] font-semibold text-[#EE695D]'
+                      : 'text-[18px] font-semibold text-[#121212]'
                   }
                 >
                   {item.unpaid
-                    ? '결제 안 함'
+                    ? '미결제 상태'
                     : item.saving == null
-                      ? '계산 안 됨'
-                      : item.result === 'PAID_UNREGISTERED'
-                        ? '미등록 카드'
-                        : `+${won(item.saving)}`}
+                      ? null
+                      : `+${won(item.saving)}`}
                 </strong>
               </button>
             ))}
@@ -369,6 +357,13 @@ function CardImage({
   recommended = false,
   className = '',
 }) {
+  if (card.id === 'other' && !landscape) {
+    return (
+      <span className="relative inline-block h-[60px] w-10 shrink-0 overflow-hidden rounded-[5px] bg-[#D6D6D6]" aria-hidden="true">
+        <img src={empty} alt="" className="absolute top-1/2 left-1/2 h-[66.67%] w-[150%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-90 object-contain" />
+      </span>
+    );
+  }
   if (!card.image) {
     return (
       <span
