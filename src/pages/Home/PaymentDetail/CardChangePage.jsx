@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import PageHeader from '@/components/layout/PageHeader';
+import useOwnedCards from '@/hooks/useOwnedCards';
+import useRecommendation from '@/hooks/useRecommendation';
 import { cn } from '@/utils/cn';
-import { formatWon, PAYMENT_DETAILS } from './paymentDetailData';
+import { formatWon } from './paymentDetailData';
+import RecommendationStatusScreen from './RecommendationStatusScreen';
+import { toRecommendationView } from './recommendationMapper';
 
 // 등록하지 않은 카드로 결제한 경우 선택하는 항목
 const UNREGISTERED_CARD_ID = 'unregistered';
@@ -33,9 +37,12 @@ function CardThumbnail({ card }) {
   );
 }
 
-function getCardNote(card, category) {
+function getCardNote(card) {
   if (card.id === UNREGISTERED_CARD_ID) {
     return { label: '등록하지 않은 카드' };
+  }
+  if (card.status === 'NO_BENEFIT') {
+    return { label: card.noBenefitReason ?? '혜택 없음', discount: 0 };
   }
   if (card.isConditional) {
     return {
@@ -43,9 +50,6 @@ function getCardNote(card, category) {
       isWarning: true,
       discount: card.discount,
     };
-  }
-  if (card.discount === 0) {
-    return { label: `${category} 혜택 없음`, discount: card.discount };
   }
   return { label: '잔여 한도 기준 적용', discount: card.discount };
 }
@@ -102,25 +106,28 @@ export default function CardChangePage() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const { paymentId } = useParams();
-  const payment = PAYMENT_DETAILS[paymentId];
-  const [selectedCardId, setSelectedCardId] = useState(
-    state?.selectedCardId ?? payment?.recommendedCardId,
+  const {
+    data: rawRecommendation,
+    isPending: isRecommendationPending,
+    isError: isRecommendationError,
+    error: recommendationError,
+    refetch: refetchRecommendation,
+  } = useRecommendation(paymentId);
+  const { data: ownedCards } = useOwnedCards();
+  const payment = toRecommendationView(rawRecommendation, ownedCards);
+  // 사용자가 고른 카드. 고르기 전에는 결과 화면에서 보던 카드 → 추천 카드 순으로 선택해 둡니다.
+  const [pickedCardId, setSelectedCardId] = useState(
+    state?.selectedCardId ?? null,
   );
+  const selectedCardId = pickedCardId ?? payment?.recommendedCardId;
 
   if (!payment) {
     return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-[402px] flex-col items-center justify-center gap-4 bg-[#F1F1F1]">
-        <p className="font-['Pretendard'] text-[16px] text-[#6E6E6E]">
-          결제 기록을 찾을 수 없어요
-        </p>
-        <button
-          type="button"
-          onClick={() => navigate('/')}
-          className="font-['Pretendard'] text-[14px] text-[#8C9EFF] underline"
-        >
-          홈으로 돌아가기
-        </button>
-      </main>
+      <RecommendationStatusScreen
+        isPending={isRecommendationPending && !isRecommendationError}
+        error={recommendationError}
+        onRetry={() => refetchRecommendation()}
+      />
     );
   }
 
@@ -140,7 +147,7 @@ export default function CardChangePage() {
 
   const handleSubmit = () => {
     if (selectedCardId === UNREGISTERED_CARD_ID) {
-      // TODO: API 연동 시 미등록 카드로 결제했음을 서버에 기록합니다.
+      // 추천 결과 단계에서는 결제 여부를 저장하지 않습니다. 결제 후 홈의 결제 확인 카드에서 기록합니다.
       navigate('/');
       return;
     }
@@ -163,9 +170,7 @@ export default function CardChangePage() {
               어떤 카드로 결제할까요?
             </h2>
             <p className="font-['Pretendard'] text-[14px] leading-[140%] font-[400] break-keep text-[#4B4B4B]">
-              카똑은 해당 결제건에서{' '}
-              {recommendedCard?.brandName ?? recommendedCard?.name}카드를
-              추천했어요.
+              카똑은 해당 결제건에서 {recommendedCard?.name} 카드를 추천했어요.
               <br />
               실제로 쓴 카드 기준으로 한도와 챙긴 혜택을 다시 계산해요.
             </p>
@@ -176,7 +181,7 @@ export default function CardChangePage() {
               <CardOption
                 key={card.id}
                 card={card}
-                note={getCardNote(card, payment.category)}
+                note={getCardNote(card)}
                 isSelected={card.id === selectedCardId}
                 onSelect={() => setSelectedCardId(card.id)}
               />

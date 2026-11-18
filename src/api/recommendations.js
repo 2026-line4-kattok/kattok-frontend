@@ -17,3 +17,14 @@ export const getPaymentOptions = (id) =>
 // userCardId는 PAID_OTHER일 때만 보냅니다.
 export const savePaymentResult = (id, body) =>
   api.put(`/v1/recommendations/${id}/payment`, body);
+
+// 4-5. 추천 생성 (201 Created)
+// body: { merchantId | categoryId (둘 중 하나만), amount (1 ~ 10,000,000) }
+// 400 INVALID_INPUT · 400 MERCHANT_NOT_SUPPORTED · 404 MERCHANT_NOT_FOUND
+// 404 CATEGORY_NOT_FOUND · 409 NO_OWNED_CARDS
+export const createRecommendation = (body) =>
+  api.post('/v1/recommendations', body);
+
+// 4-6. 추천 결과 조회 (4-5와 같은 형식, 당시 결과를 다시 계산하지 않음)
+// 404 RECOMMENDATION_NOT_FOUND
+export const getRecommendation = (id) => api.get(`/v1/recommendations/${id}`);
