@@ -23,10 +23,37 @@ export const CATEGORIES = [
 // 띄어쓰기 차이('온라인쇼핑' / '온라인 쇼핑')를 무시하고 비교합니다.
 const normalize = (text) => text.replace(/\s/g, '');
 
-// 업종명 또는 업종명으로 시작하는 문구('카페 10% 할인' 등)에 맞는 아이콘을 찾습니다.
+// 이름 안에 다른 단어의 일부로 들어간 경우는 업종으로 보지 않습니다. (예: '스마트폰'의 '마트')
+const FALSE_MATCHES = { 마트: ['스마트'] };
+
+// text에서 name이 처음 나오는 위치 (없으면 -1)
+const findPosition = (text, name) => {
+  let from = 0;
+  while (from <= text.length) {
+    const index = text.indexOf(name, from);
+    if (index < 0) return -1;
+    const isFalseMatch = (FALSE_MATCHES[name] ?? []).some((word) => {
+      const start = index - word.indexOf(name);
+      return start >= 0 && text.startsWith(word, start);
+    });
+    if (!isFalseMatch) return index;
+    from = index + 1;
+  }
+  return -1;
+};
+
+// 업종명이나 업종명이 들어간 문구('카페 10% 할인', '주말 마트 10% 할인' 등)에 맞는 아이콘을 찾습니다.
+// 여러 업종이 들어 있으면 가장 앞에 나온 업종을 씁니다.
 export const getCategoryIcon = (text = '') => {
   const target = normalize(text);
-  return CATEGORIES.find(({ label, aliases = [] }) =>
-    [label, ...aliases].some((name) => target.startsWith(normalize(name))),
-  )?.icon;
+  let best = null;
+  CATEGORIES.forEach(({ label, aliases = [], icon }) => {
+    [label, ...aliases].forEach((name) => {
+      const position = findPosition(target, normalize(name));
+      if (position >= 0 && (best === null || position < best.position)) {
+        best = { position, icon };
+      }
+    });
+  });
+  return best?.icon;
 };
