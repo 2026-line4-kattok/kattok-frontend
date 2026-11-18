@@ -1,23 +1,23 @@
-import { useNavigate } from 'react-router-dom';
 import info from '@/assets/mypage/error.svg';
 import BottomNav from '@/components/layout/BottomNav';
 import { cn } from '@/utils/cn';
 import { useCallback, useRef, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import toastTrash from '@/assets/mypage/trash_red.svg';
+import change from '@/assets/mypage/Change_red.svg';
 import Toast from '@/components/common/Toast';
 import { getCategoryIcon } from '@/constants/categories';
 import {
-  INITIAL_CARD_SAVINGS,
-  INITIAL_MONTH,
-  INITIAL_PAYMENTS,
-  estimateSaving,
-  findCard,
+  currentMonth,
   moveMonth,
-  totalSaving,
   won,
-} from './mypageData';
-import MypageRecord, { EditPayment, DeletePaymentDialog } from './MypageRecord';
+  kstDate,
+  paymentView,
+  paymentRequest,
+  requestError,
+} from './mypageApi';
+import useMypageApi from './mypageApi';
+import MypageRecord, { EditPayment, RequestState } from './MypageRecord';
 import MypageLogic from './MypageLogic';
 import MypageAccount, { LogoutDialog } from './MypageAccount';
 import DeleteAccount from './DeleteAccount';
@@ -26,22 +26,14 @@ import PolicyService from './PolicyService';
 import PolicyPrivacy from './PolicyPrivacy';
 import gobtn from '@/assets/mypage/go.svg';
 import backbtn from '@/assets/mypage/back.svg';
+import { slideBack } from '@/pages/Onboarding/backTransition';
 
-function Dashboard({ payments, onOpen }) {
-  const confirmed = payments.filter((item) => !item.pending && !item.unpaid);
-  const total = totalSaving(payments);
-  const cardTotals = ['shinhan', 'kb', 'hana'].map((id) => {
-    const card = findCard(id);
-    return {
-      ...card,
-      total: Math.max(
-        0,
-        INITIAL_CARD_SAVINGS[id] +
-          totalSaving(confirmed.filter((item) => item.cardId === id)) -
-          totalSaving(INITIAL_PAYMENTS.filter((item) => item.cardId === id)),
-      ),
-    };
-  });
+function Dashboard({ summary, resolveCard, onOpen }) {
+  const total = summary.savedBenefit.amount;
+  const cardTotals = summary.byCard.map((item) => ({
+    ...resolveCard(item.userCardId, item.productName),
+    total: item.amount,
+  }));
   const largestCardSaving = Math.max(
     ...cardTotals.map((card) => card.total),
     0,
@@ -56,11 +48,19 @@ function Dashboard({ payments, onOpen }) {
         aria-label="절약 현황"
       >
         <div className="flex items-center gap-[8px] text-[16px] text-[#6E6E6E]">
-          11월 카똑으로 챙긴 혜택 <img src={info} className="size-4" />
+          {Number(summary.month.slice(5))}월 카똑으로 챙긴 혜택
+          <button
+            type="button"
+            onClick={() => onOpen('calculation')}
+            aria-label="카똑 계산 방식 안내"
+            className="inline-flex size-4 shrink-0 items-center justify-center"
+          >
+            <img src={info} alt="" className="size-4" />
+          </button>
         </div>
         <div className="mt-[5px] flex items-baseline justify-between [&>span]:text-[14px] [&>span]:text-[#8E8E8E] [&>strong]:text-[36px] [&>strong]:leading-[1.2] [&>strong]:font-semibold [&>strong]:text-[#121212]">
           <strong>{won(total)}</strong>
-          <span>결제 {confirmed.length}건</span>
+          <span>결제 {summary.savedBenefit.paymentCount}건</span>
         </div>
         <div className="mt-[32px] flex flex-col gap-5">
           {cardTotals.map((card) => (
@@ -101,18 +101,23 @@ function Dashboard({ payments, onOpen }) {
 }
 
 export default function Mypage() {
-  const navigate = useNavigate();
   const [screen, setScreen] = useState('dashboard');
-  const [payments, setPayments] = useState(INITIAL_PAYMENTS);
-  const [month, setMonth] = useState(INITIAL_MONTH);
+  const [month, setMonth] = useState(currentMonth);
   const [editingId, setEditingId] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [toast, setToast] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [mutationError, setMutationError] = useState('');
+  const mutationLock = useRef(false);
+  const data = useMypageApi(screen, month, editingId);
   const contentRef = useRef(null);
   const closeDialog = useCallback(() => setDialog(null), []);
-  const closeEditor = useCallback(() => setEditingId(null), []);
+  const closeEditor = useCallback(() => {
+    if (mutationLock.current) return;
+    setEditingId(null);
+    setMutationError('');
+  }, []);
   const closeToast = useCallback(() => setToast(null), []);
-  const editing = payments.find((payment) => payment.id === editingId);
   const titles = {
     history: `${Number(month.slice(5))}월 결제 기록`,
     calculation: '',
@@ -124,82 +129,122 @@ export default function Mypage() {
   };
 
   const open = (next) => {
+    if (mutationLock.current) return;
+    setMutationError('');
     setScreen(next);
+    if (next === 'history') setMonth(currentMonth());
     contentRef.current?.scrollTo({ top: 0 });
   };
-  const back = () =>
-    open(
-      screen === 'terms' || screen === 'privacy'
-        ? 'policies'
-        : screen === 'withdrawal'
-          ? 'account'
-          : 'dashboard',
-    );
-  const notify = (title, description, deleted = false) =>
-    setToast({ title, description, deleted, category: editing?.category });
-  const save = (cardId) => {
-    const card = findCard(cardId);
-    setPayments((previous) =>
-      previous.map((item) =>
-        item.id === editing.id
-          ? {
-              ...item,
-              cardId,
-              saving: estimateSaving(item, card),
-              pending: false,
-              unpaid: false,
-            }
-          : item,
-      ),
-    );
-    setEditingId(null);
-    notify(
-      '결제 기록이 수정되었어요',
-      `${editing.place} 결제 기록이 ${card.name}로 변경되었어요`,
+  const back = () => {
+    if (mutationLock.current) return;
+    slideBack(
+      () =>
+        open(
+          screen === 'terms' || screen === 'privacy'
+            ? 'policies'
+            : screen === 'withdrawal'
+              ? 'account'
+              : 'dashboard',
+        ),
+      () => contentRef.current,
     );
   };
-  const remove = () => {
-    setPayments((previous) =>
-      previous.filter((item) => item.id !== editing.id),
-    );
-    setDialog(null);
-    setEditingId(null);
-    notify(
-      `${findCard(editing.cardId).name} 삭제됨`,
-      `${editing.place} 결제 기록이 삭제되었어요`,
-      true,
-    );
+  const persistPayment = async (
+    payment,
+    body,
+    editing = false,
+    excluded = false,
+  ) => {
+    if (mutationLock.current) return;
+    mutationLock.current = true;
+    setSaving(true);
+    setMutationError('');
+    try {
+      const result = await data.savePayment(payment.recommendationId, body);
+      if (!data.isCurrent()) return;
+      setEditingId(null);
+      const date = kstDate(payment.recommendedAt);
+      const place = payment.merchant?.name ?? `${payment.category.name} 업종`;
+      const editedCard =
+        editing && ['PAID_RECOMMENDED', 'PAID_OTHER'].includes(result.result)
+          ? data.resolveCard(
+              result.userCard?.userCardId,
+              result.userCard?.productName,
+            )
+          : null;
+      const notice = excluded
+        ? {
+            title: `${place} 결제건 제외됨`,
+            description: `${Number(date.slice(5, 7))}월 ${date.slice(8)}일 ${place} 결제건이 미결제 상태로 변경되었어요.`,
+          }
+        : editedCard
+          ? {
+              title: '결제 기록이 수정되었어요',
+              description: `${place} 결제 기록이 ${editedCard.name}로 수정되었어요`,
+            }
+          : {
+              title: '결제 안 함으로 기록했어요',
+              description: '결제하지 않은 것으로 기록했어요',
+            };
+      setToast(
+        result.result !== 'PAID_UNREGISTERED' &&
+          (excluded || editedCard || body.result === 'NOT_PAID')
+          ? {
+              ...notice,
+              category: payment.category?.name ?? payment.category,
+              card: editedCard,
+              excluded,
+              rejected: body.result === 'NOT_PAID',
+            }
+          : null,
+      );
+      await data.refreshPayments();
+    } catch (error) {
+      if (data.isCurrent()) setMutationError(requestError(error));
+    } finally {
+      mutationLock.current = false;
+      if (data.isCurrent()) setSaving(false);
+    }
+  };
+  const save = (selection, excluded = false) => {
+    try {
+      const payment = data.payment.data;
+      const body = paymentRequest(payment, selection);
+      void persistPayment(
+        payment,
+        body,
+        payment.result !== 'PENDING',
+        excluded,
+      );
+    } catch (error) {
+      setMutationError(requestError(error));
+    }
   };
   const confirmPayment = (payment) => {
-    setPayments((previous) =>
-      previous.map((item) =>
-        item.id === payment.id
-          ? {
-              ...item,
-              pending: false,
-              unpaid: false,
-              saving: estimateSaving(item, findCard(item.cardId)),
-            }
-          : item,
-      ),
-    );
-    setToast(null);
+    if (payment.recommendedCard?.deleted) {
+      setMutationError(
+        '추천 카드가 삭제됐어요. 다른 카드나 미등록 카드를 선택해주세요.',
+      );
+      return;
+    }
+    void persistPayment(payment, { result: 'PAID_RECOMMENDED' });
   };
-
-  const rejectPayment = (payment) => {
-    setPayments((previous) =>
-      previous.map((item) =>
-        item.id === payment.id
-          ? { ...item, pending: false, unpaid: true, saving: 0 }
-          : item,
-      ),
-    );
-    setToast({
-      title: '결제 기록 거부됨',
-      description: '추후에 일괄로 등록할 수 있어요',
-      rejected: true,
-      category: payment.category,
-    });
+  const rejectPayment = (payment) =>
+    void persistPayment(payment, { result: 'NOT_PAID' });
+  const withdraw = async () => {
+    if (mutationLock.current) return;
+    mutationLock.current = true;
+    setSaving(true);
+    setMutationError('');
+    try {
+      await data.deleteAccount();
+      await data.endSession();
+    } catch (error) {
+      if (data.isCurrent()) setMutationError(requestError(error));
+    } finally {
+      mutationLock.current = false;
+      if (data.isCurrent()) setSaving(false);
+    }
   };
 
   return (
@@ -208,7 +253,15 @@ export default function Mypage() {
       ref={contentRef}
     >
       {screen === 'dashboard' ? (
-        <Dashboard payments={payments} onOpen={open} />
+        <RequestState query={data.summary}>
+          {data.summary.data && (
+            <Dashboard
+              summary={data.summary.data}
+              resolveCard={data.resolveCard}
+              onOpen={open}
+            />
+          )}
+        </RequestState>
       ) : (
         <>
           <Header
@@ -221,6 +274,7 @@ export default function Mypage() {
                 <button
                   type="button"
                   aria-label="Previous month"
+                  disabled={saving}
                   className="flex size-9 shrink-0 items-center justify-center"
                   onClick={() => setMonth(moveMonth(month, -1))}
                 >
@@ -233,7 +287,7 @@ export default function Mypage() {
                 <button
                   type="button"
                   aria-label="Next month"
-                  disabled={month >= INITIAL_MONTH}
+                  disabled={month >= currentMonth() || saving}
                   onClick={() => setMonth(moveMonth(month, 1))}
                   className="flex size-9 shrink-0 items-center justify-center disabled:cursor-pointer! disabled:opacity-100!"
                 >
@@ -243,58 +297,105 @@ export default function Mypage() {
             )}
           </Header>
           {screen === 'history' && (
-            <MypageRecord
-              payments={payments}
-              month={month}
-              onEdit={(item) => setEditingId(item.id)}
-              onConfirm={confirmPayment}
-              onReject={rejectPayment}
-            />
+            <RequestState query={data.records}>
+              {mutationError && editingId == null && (
+                <p
+                  role="alert"
+                  className="sticky top-0 z-10 bg-[#F1F1F1] py-3 text-[14px] text-[#EE695D]"
+                >
+                  {mutationError}
+                </p>
+              )}
+              {data.records.data && (
+                <MypageRecord
+                  summary={data.records.data.savedBenefit}
+                  payments={data.records.data.records.map((record) =>
+                    paymentView(record, data.resolveCard),
+                  )}
+                  pending={(data.pending.data ?? []).map((record) =>
+                    paymentView(record, data.resolveCard),
+                  )}
+                  pendingCount={data.records.data.pendingCount}
+                  pendingQuery={data.pending}
+                  saving={saving}
+                  onEdit={(item) => {
+                    setMutationError('');
+                    setEditingId(item.id);
+                  }}
+                  onConfirm={confirmPayment}
+                  onReject={rejectPayment}
+                />
+              )}
+            </RequestState>
           )}
           {screen === 'calculation' && <MypageLogic />}
           {screen === 'account' && (
-            <MypageAccount
-              onLogout={() => setDialog('logout')}
-              onWithdraw={() => open('withdrawal')}
-            />
+            <RequestState query={data.profile}>
+              {data.profile.data && (
+                <MypageAccount
+                  profile={data.profile.data}
+                  onLogout={() => setDialog('logout')}
+                  onWithdraw={() => open('withdrawal')}
+                />
+              )}
+            </RequestState>
           )}
           {screen === 'policies' && <Policy onOpen={open} />}
           {screen === 'terms' && <PolicyService />}
           {screen === 'privacy' && <PolicyPrivacy />}
           {screen === 'withdrawal' && (
-            <DeleteAccount
-              payments={payments}
-              onContinue={() => open('account')}
-              onWithdraw={() =>
-                navigate('/onboarding', {
-                  replace: true,
-                  state: { back: true },
-                })
-              }
-            />
+            <RequestState query={data.deletion}>
+              {data.deletion.data && (
+                <DeleteAccount
+                  summary={data.deletion.data}
+                  submitting={saving}
+                  error={mutationError}
+                  onContinue={() => open('account')}
+                  onWithdraw={withdraw}
+                />
+              )}
+            </RequestState>
           )}
         </>
       )}
-      {editing && dialog !== 'delete' && (
+      {mutationError &&
+        editingId == null &&
+        !['history', 'withdrawal'].includes(screen) && (
+          <p role="alert" className="mt-4 text-[14px] text-[#EE695D]">
+            {mutationError}
+          </p>
+        )}
+      {editingId != null && (
         <EditPayment
-          key={editing.id}
-          payment={editing}
+          key={editingId}
+          query={data.payment}
+          resolveCard={data.resolveCard}
+          saving={saving}
+          error={mutationError}
           onClose={closeEditor}
           onSave={save}
-          onDelete={() => setDialog('delete')}
         />
       )}
-      {dialog === 'delete' && (
-        <DeletePaymentDialog onClose={closeDialog} onConfirm={remove} />
+      {dialog === 'logout' && (
+        <LogoutDialog
+          onClose={closeDialog}
+          onConfirm={() => data.endSession()}
+        />
       )}
-      {dialog === 'logout' && <LogoutDialog onClose={closeDialog} />}
       {toast && (
         <div
-          className={
-            toast.deleted
-              ? '[&_[role=status]>span:first-child]:bg-transparent [&_[role=status]>span:first-child]:bg-none'
-              : ''
-          }
+          className={cn(
+            (toast.excluded || toast.card) &&
+              '[&_[role=status]>span:nth-child(2)>span:last-child]:whitespace-normal',
+            toast.excluded &&
+              '[&_[role=status]>span:nth-child(2)>span:last-child]:overflow-visible',
+            toast.excluded &&
+              '[&_[role=status]]:min-h-[92px] [&_[role=status]]:gap-[18px] [&_[role=status]]:px-6 [&_[role=status]]:py-3 [&>div]:px-[18px]',
+            toast.card &&
+              '[&_[role=status]]:h-[92px] [&_[role=status]]:justify-between [&_[role=status]]:p-1 [&_[role=status]]:backdrop-blur-[24px] [&_[role=status]>span:nth-child(2)]:h-[84px] [&_[role=status]>span:nth-child(2)]:gap-1 [&_[role=status]>span:nth-child(2)]:py-2 [&_[role=status]>span:nth-child(2)]:pr-5 [&_[role=status]>span:nth-child(2)>span:last-child]:line-clamp-2 [&>div]:px-[18px]',
+            toast.deleted &&
+              '[&_[role=status]>span:first-child]:bg-transparent [&_[role=status]>span:first-child]:bg-none',
+          )}
         >
           <Toast
             key={toast.title + toast.description}
@@ -310,9 +411,35 @@ export default function Mypage() {
               </span>
             }
             description={toast.description}
-            categoryIcon={getCategoryIcon(toast.category)}
+            categoryIcon={
+              toast.excluded || toast.card
+                ? undefined
+                : getCategoryIcon(toast.category)
+            }
+            iconClassName={
+              toast.excluded
+                ? 'size-6 bg-transparent'
+                : toast.card
+                  ? 'h-[84px] w-[102px] bg-transparent'
+                  : undefined
+            }
+            hasArrow={!toast.excluded && !toast.card}
             icon={
-              toast.rejected ? (
+              toast.excluded ? (
+                <img src={change} alt="" className="size-6 object-contain" />
+              ) : toast.card ? (
+                <>
+                  <CardImage
+                    card={toast.card}
+                    landscape
+                    fill
+                    className="h-full w-full"
+                  />
+                  <span className="absolute top-1/2 left-1/2 flex size-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#CDD3FF]">
+                    <Check className="size-5 text-[#7F90E8]" strokeWidth={3} />
+                  </span>
+                </>
+              ) : toast.rejected ? (
                 <span className="flex size-6 items-center justify-center rounded-full bg-[#EE695D]">
                   <X className="size-5 text-[#FAFAFA]" strokeWidth={2} />
                 </span>
@@ -327,10 +454,6 @@ export default function Mypage() {
               )
             }
             onClose={closeToast}
-            onClick={() => {
-              closeToast();
-              open('history');
-            }}
           />
         </div>
       )}
@@ -396,7 +519,7 @@ function Header({ title, onBack, children, record = false }) {
   );
 }
 
-function CardImage({ card, landscape = false, className = '' }) {
+function CardImage({ card, landscape = false, fill = false, className = '' }) {
   if (!card.image) {
     return (
       <span
@@ -410,13 +533,17 @@ function CardImage({ card, landscape = false, className = '' }) {
       </span>
     );
   }
-  const rotation = landscape
-    ? card.id === 'kb'
+  const rotation = fill
+    ? card.isHorizontal
       ? 'h-full w-full'
-      : 'h-[158.33%] w-[63.16%] rotate-270'
-    : card.id === 'kb'
-      ? 'h-[66.67%] w-[150%] rotate-90'
-      : 'h-full w-full';
+      : 'h-[121.43%] w-[82.35%] rotate-270'
+    : landscape
+      ? card.isHorizontal
+        ? 'h-full w-full'
+        : 'h-[158.33%] w-[63.16%] rotate-270'
+      : card.isHorizontal
+        ? 'h-[66.67%] w-[150%] rotate-90'
+        : 'h-full w-full';
   return (
     <span
       className={cn(
@@ -428,7 +555,8 @@ function CardImage({ card, landscape = false, className = '' }) {
         src={card.image}
         alt=""
         className={cn(
-          'absolute top-1/2 left-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain',
+          'absolute top-1/2 left-1/2 max-w-none -translate-x-1/2 -translate-y-1/2',
+          fill ? 'object-cover' : 'object-contain',
           rotation,
         )}
       />

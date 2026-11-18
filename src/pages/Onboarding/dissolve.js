@@ -18,9 +18,11 @@ export async function dissolve(update) {
     activeTransition = transition;
     // 탭이 숨겨져 전환이 생략돼도 상태 갱신은 정상적으로 완료됩니다.
     void transition.ready.catch(() => {});
-    void transition.finished.finally(() => {
-      if (activeTransition === transition) activeTransition = undefined;
-    }).catch(() => {});
+    void transition.finished
+      .finally(() => {
+        if (activeTransition === transition) activeTransition = undefined;
+      })
+      .catch(() => {});
     await transition.updateCallbackDone;
     return;
   }

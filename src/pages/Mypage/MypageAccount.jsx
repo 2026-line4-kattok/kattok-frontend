@@ -1,20 +1,19 @@
-import { clearAuthSession } from '@/pages/Onboarding/authSession';
 import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { joinedDate } from './mypageApi';
 
-function Account({ onLogout, onWithdraw }) {
+function Account({ profile, onLogout, onWithdraw }) {
   return (
     <div className="[&_dt]:text-4 mt-6 flex min-h-[calc(100dvh-168px)] flex-col [&_dt]:font-medium [&_dt]:text-[#3B426B] [&>button:first-of-type]:border-0 [&>button:first-of-type]:px-0 [&>dl]:pb-[12px] [&>dl>div]:flex [&>dl>div]:h-[64px] [&>dl>div]:justify-between [&>dl>div]:py-3">
       <dl>
         <div>
           <dt>이메일</dt>
-          <dd>Kattok@mail.com</dd>
+          <dd>{profile.email}</dd>
         </div>
         <div>
           <dt>가입일</dt>
-          <dd>2026년 11월 01일</dd>
+          <dd>{joinedDate(profile.createdAt)}</dd>
         </div>
       </dl>
       <div className="-mx-[18px] mb-3 h-2 bg-[#EBEBEB]" />
@@ -30,8 +29,7 @@ function Account({ onLogout, onWithdraw }) {
   );
 }
 
-export function LogoutDialog({ onClose }) {
-  const navigate = useNavigate();
+export function LogoutDialog({ onClose, onConfirm }) {
   return (
     <Modal title="로그아웃할까요?" onClose={onClose}>
       <p>
@@ -46,10 +44,7 @@ export function LogoutDialog({ onClose }) {
         <button
           type="button"
           className="bg-[#A3B1FF] text-[#7F90E8]"
-          onClick={() => {
-            clearAuthSession();
-            navigate('/onboarding', { replace: true, state: { back: true } });
-          }}
+          onClick={onConfirm}
         >
           로그아웃
         </button>
