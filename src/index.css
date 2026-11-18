@@ -37,6 +37,15 @@
   }
 }
 
+/*
+ * 화면 맨 위 여백 (디자인 시안의 상태바 62px 자리)
+ * 모바일 브라우저에서는 상태바가 페이지 밖에 있으므로 작게 두고,
+ * 홈 화면 앱처럼 노치 영역까지 그려질 때는 safe-area만큼 띄웁니다.
+ */
+:root {
+  --screen-top: max(16px, env(safe-area-inset-top));
+}
+
 @keyframes toast-in {
   from {
     opacity: 0;

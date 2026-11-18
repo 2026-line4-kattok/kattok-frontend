@@ -433,7 +433,7 @@ export default function CardPage() {
 
   return (
     <div className="min-h-dvh bg-[#F1F1F1]">
-      <main className="mx-auto flex w-full max-w-[402px] flex-col pt-[72px] pb-[calc(80px+max(28px,env(safe-area-inset-bottom)))]">
+      <main className="mx-auto flex w-full max-w-[402px] flex-col pt-[calc(var(--screen-top)+10px)] pb-[calc(80px+max(28px,env(safe-area-inset-bottom)))]">
         <header className="flex items-start justify-between px-[18px] max-phone-xs:px-3">
           <div className="flex flex-col gap-[2px]">
             <h1 className="font-['Pretendard'] text-[24px] leading-[120%] font-[600] text-[#121212]">

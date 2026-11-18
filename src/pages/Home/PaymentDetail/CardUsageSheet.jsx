@@ -14,7 +14,8 @@ function OptionGroup({ name, question, options, value, onChange }) {
       </legend>
       <div className="grid grid-cols-3 gap-[10px] max-phone-xs:gap-[6px]">
         {options.map((option) => (
-          <label key={option.value}>
+          // 한 줄의 선택지 중 하나가 두 줄이 되면 같은 줄의 버튼도 함께 높아집니다.
+          <label key={option.value} className="flex min-w-0">
             <input
               type="radio"
               name={name}
@@ -25,7 +26,7 @@ function OptionGroup({ name, question, options, value, onChange }) {
             />
             <span
               className={cn(
-                "flex h-[48px] items-center justify-center rounded-[8px] font-['Pretendard'] text-[16px] leading-[140%] font-[400] whitespace-nowrap peer-focus-visible:outline-2 peer-focus-visible:outline-[#8C9EFF] max-phone-s:text-[14px]",
+                "flex min-h-[48px] w-full min-w-0 items-center justify-center rounded-[8px] px-[6px] py-[6px] text-center font-['Pretendard'] text-[16px] leading-[130%] font-[400] break-keep peer-focus-visible:outline-2 peer-focus-visible:outline-[#8C9EFF] max-phone-s:text-[14px]",
                 value === option.value
                   ? 'bg-[#8C9EFF] text-[#3B426B]'
                   : 'bg-[#F1F1F1] text-[#8E8E8E]',
