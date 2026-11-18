@@ -388,9 +388,9 @@ export default function Mypage() {
             (toast.excluded || toast.card) &&
               '[&_[role=status]>span:nth-child(2)>span:last-child]:whitespace-normal',
             toast.excluded &&
-              '[&_[role=status]>span:nth-child(2)>span:last-child]:overflow-visible',
+              '[&_[role=status]>span:nth-child(2)>span:last-child]:line-clamp-2',
             toast.excluded &&
-              '[&_[role=status]]:min-h-[92px] [&_[role=status]]:gap-[18px] [&_[role=status]]:px-6 [&_[role=status]]:py-3 [&>div]:px-[18px]',
+              '[&_[role=status]]:h-[76px] [&_[role=status]]:justify-between [&_[role=status]]:gap-3 [&_[role=status]]:p-1 [&_[role=status]]:pr-4 [&_[role=status]]:backdrop-blur-[24px] [&>div]:px-[18px]',
             toast.card &&
               '[&_[role=status]]:h-[92px] [&_[role=status]]:justify-between [&_[role=status]]:p-1 [&_[role=status]]:backdrop-blur-[24px] [&_[role=status]>span:nth-child(2)]:h-[84px] [&_[role=status]>span:nth-child(2)]:gap-1 [&_[role=status]>span:nth-child(2)]:py-2 [&_[role=status]>span:nth-child(2)]:pr-5 [&_[role=status]>span:nth-child(2)>span:last-child]:line-clamp-2 [&>div]:px-[18px]',
             toast.deleted &&
@@ -418,7 +418,7 @@ export default function Mypage() {
             }
             iconClassName={
               toast.excluded
-                ? 'size-6 bg-transparent'
+                ? 'size-[68px] bg-transparent'
                 : toast.card
                   ? 'h-[84px] w-[102px] bg-transparent'
                   : undefined
@@ -426,7 +426,12 @@ export default function Mypage() {
             hasArrow={!toast.excluded && !toast.card}
             icon={
               toast.excluded ? (
-                <img src={change} alt="" className="size-6 object-contain" />
+                <>
+                  {getCategoryIcon(toast.category) && (
+                    <img src={getCategoryIcon(toast.category)} alt="" className="size-12 object-contain" />
+                  )}
+                  <img src={change} alt="" className="absolute top-1/2 left-1/2 size-6 -translate-x-1/2 -translate-y-1/2 object-contain" />
+                </>
               ) : toast.card ? (
                 <>
                   <CardImage
