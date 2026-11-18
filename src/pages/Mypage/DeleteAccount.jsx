@@ -1,8 +1,14 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
-import { totalSaving, won } from './mypageData';
+import { won } from './mypageApi';
 
-function Withdrawal({ payments, onContinue, onWithdraw }) {
+function Withdrawal({
+  summary,
+  onContinue,
+  onWithdraw,
+  submitting = false,
+  error,
+}) {
   const [checked, setChecked] = useState(false);
   return (
     <div className="flex min-h-[calc(100dvh-168px)] flex-col [&>h2]:my-2 [&>h2]:text-[24px] [&>h2]:leading-[1.2] [&>h2]:font-semibold [&>h2]:text-[#121212]">
@@ -17,15 +23,15 @@ function Withdrawal({ payments, onContinue, onWithdraw }) {
       <dl className="mt-[32px] flex flex-col gap-4 rounded-[8px] bg-[#FAFAFA] px-6 py-4 [&_dd]:text-[20px] [&_dd]:font-semibold [&_dd]:text-[#8C9EFF] [&_dt]:text-[16px] [&_dt]:font-medium [&_dt]:text-[#8E8E8E] [&>div]:flex [&>div]:items-center [&>div]:justify-between [&>div]:py-0 [&>div]:leading-6">
         <div>
           <dt>등록한 카드</dt>
-          <dd>3장</dd>
+          <dd>{summary.ownedCardCount}장</dd>
         </div>
         <div>
           <dt>결제 기록</dt>
-          <dd>{payments.filter((item) => !item.pending).length}건</dd>
+          <dd>{summary.paymentRecordCount}건</dd>
         </div>
         <div>
           <dt>카똑으로 챙긴 혜택</dt>
-          <dd>{won(totalSaving(payments))}</dd>
+          <dd>{won(summary.savedBenefitTotal)}</dd>
         </div>
         <div>
           <dt>입력한 실적·입력한 실적</dt>
@@ -36,6 +42,7 @@ function Withdrawal({ payments, onContinue, onWithdraw }) {
           type="checkbox"
           className="peer sr-only"
           checked={checked}
+          disabled={submitting}
           onChange={(event) => setChecked(event.target.checked)}
         />
         <span
@@ -49,20 +56,27 @@ function Withdrawal({ payments, onContinue, onWithdraw }) {
         </span>
         <span>위 내용을 확인했어요</span>
       </label>
+      {error && (
+        <p role="alert" className="mt-4 text-[14px] text-[#EE695D]">
+          {error}
+        </p>
+      )}
       <div className="mt-auto flex w-full gap-2.5 pt-12">
         {checked && (
           <button
             type="button"
             className="flex h-[54px] min-w-0 flex-1 items-center justify-center rounded-[8px] bg-transparent p-2.5 text-[20px] leading-[1.2] font-semibold text-[#3B426B]"
             onClick={onWithdraw}
+            disabled={submitting}
           >
-            탈퇴하기
+            {submitting ? '탈퇴 처리 중...' : '탈퇴하기'}
           </button>
         )}
         <button
           type="button"
           className="flex h-[54px] min-w-0 flex-1 items-center justify-center rounded-[8px] bg-[#A3B1FF] p-2.5 text-[20px] leading-[1.2] font-semibold text-[#3B426B]"
           onClick={onContinue}
+          disabled={submitting}
         >
           계속 쓸게요
         </button>

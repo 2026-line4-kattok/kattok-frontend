@@ -24,7 +24,7 @@ export default function Onboarding() {
     <div
       className={cn(
         'relative mx-auto h-screen max-w-[430px] overflow-hidden bg-neutral-100',
-        isBack && 'animate-slide-in',
+        isBack && 'animate-slide-in motion-reduce:animate-none',
       )}
     >
       {/* 스플래시 2 배경 */}
