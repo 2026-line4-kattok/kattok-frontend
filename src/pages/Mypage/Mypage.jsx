@@ -165,6 +165,7 @@ export default function Mypage() {
       setEditingId(null);
       const date = kstDate(payment.recommendedAt);
       const place = payment.merchant?.name ?? `${payment.category.name} 업종`;
+      const unregistered = result.result === 'PAID_UNREGISTERED';
       const editedCard =
         editing && ['PAID_RECOMMENDED', 'PAID_OTHER'].includes(result.result)
           ? data.resolveCard(
@@ -177,6 +178,11 @@ export default function Mypage() {
             title: `${place} 결제건 제외됨`,
             description: `${Number(date.slice(5, 7))}월 ${date.slice(8)}일 ${place} 결제건이 미결제 상태로 변경되었어요.`,
           }
+        : unregistered
+          ? {
+              title: `${won(payment.amount)} 기록`,
+              description: '미등록 카드로 혜택 정보가 확인되지 않아요.',
+            }
         : editedCard
           ? {
               title: '결제 기록이 수정되었어요',
@@ -187,13 +193,13 @@ export default function Mypage() {
               description: '결제하지 않은 것으로 기록했어요',
             };
       setToast(
-        result.result !== 'PAID_UNREGISTERED' &&
-          (excluded || editedCard || body.result === 'NOT_PAID')
+        (unregistered || excluded || editedCard || body.result === 'NOT_PAID')
           ? {
               ...notice,
               category: payment.category?.name ?? payment.category,
               card: editedCard,
               excluded,
+              unregistered,
               rejected: body.result === 'NOT_PAID',
             }
           : null,
@@ -385,7 +391,7 @@ export default function Mypage() {
       {toast && (
         <div
           className={cn(
-            (toast.excluded || toast.card) &&
+            (toast.excluded || toast.card || toast.unregistered) &&
               '[&_[role=status]>span:nth-child(2)>span:last-child]:whitespace-normal',
             toast.excluded &&
               '[&_[role=status]>span:nth-child(2)>span:last-child]:line-clamp-2',
@@ -393,6 +399,7 @@ export default function Mypage() {
               '[&_[role=status]]:h-[76px] [&_[role=status]]:justify-between [&_[role=status]]:gap-3 [&_[role=status]]:p-1 [&_[role=status]]:pr-4 [&_[role=status]]:backdrop-blur-[24px] [&>div]:px-[18px]',
             toast.card &&
               '[&_[role=status]]:h-[92px] [&_[role=status]]:justify-between [&_[role=status]]:p-1 [&_[role=status]]:backdrop-blur-[24px] [&_[role=status]>span:nth-child(2)]:h-[84px] [&_[role=status]>span:nth-child(2)]:gap-1 [&_[role=status]>span:nth-child(2)]:py-2 [&_[role=status]>span:nth-child(2)]:pr-5 [&_[role=status]>span:nth-child(2)>span:last-child]:line-clamp-2 [&>div]:px-[18px]',
+            toast.unregistered && '[&>div]:px-[18px] [&_[role=status]]:h-[76px] [&_[role=status]]:p-1 [&_[role=status]]:pr-4 [&_[role=status]]:backdrop-blur-[24px] [&_[role=status]>span:nth-child(2)>span:last-child]:line-clamp-2',
             toast.deleted &&
               '[&_[role=status]>span:first-child]:bg-transparent [&_[role=status]>span:first-child]:bg-none',
           )}
@@ -412,12 +419,12 @@ export default function Mypage() {
             }
             description={toast.description}
             categoryIcon={
-              toast.excluded || toast.card
+              toast.excluded || toast.card || toast.unregistered
                 ? undefined
                 : getCategoryIcon(toast.category)
             }
             iconClassName={
-              toast.excluded
+              toast.excluded || toast.unregistered
                 ? 'size-[68px] bg-transparent'
                 : toast.card
                   ? 'h-[84px] w-[102px] bg-transparent'
@@ -428,9 +435,18 @@ export default function Mypage() {
               toast.excluded ? (
                 <>
                   {getCategoryIcon(toast.category) && (
-                    <img src={getCategoryIcon(toast.category)} alt="" className="size-12 object-contain" />
+                    <img src={getCategoryIcon(toast.category)} alt="" className="size-[64px] object-contain" />
                   )}
                   <img src={change} alt="" className="absolute top-1/2 left-1/2 size-6 -translate-x-1/2 -translate-y-1/2 object-contain" />
+                </>
+              ) : toast.unregistered ? (
+                <>
+                  {getCategoryIcon(toast.category) && (
+                    <img src={getCategoryIcon(toast.category)} alt="" className="size-[64px] object-contain" />
+                  )}
+                  <span className="absolute top-1/2 left-1/2 flex size-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#A3B1FF]">
+                    <Check className="size-[24px] text-[#3B426B]" strokeWidth={3} />
+                  </span>
                 </>
               ) : toast.card ? (
                 <>
