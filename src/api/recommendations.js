@@ -6,3 +6,14 @@ import api from './axiosInstance';
 // 404 RECOMMENDATION_NOT_FOUND · 409 NO_RECOMMENDED_CARD
 export const confirmRecommendation = (id) =>
   api.post(`/v1/recommendations/${id}/confirm`);
+
+// 5-1. 결제 확인 선택지 조회 (현재 기록 + 다른 카드 선택지 cardOptions)
+// 404 RECOMMENDATION_NOT_FOUND · 409 PAYMENT_NOT_REQUESTED(대기 기록 없음)
+export const getPaymentOptions = (id) =>
+  api.get(`/v1/recommendations/${id}/payment`);
+
+// 5-2. 결제 확인 응답 저장
+// body: { result: 'PAID_RECOMMENDED' | 'PAID_OTHER' | 'PAID_UNREGISTERED' | 'NOT_PAID', userCardId? }
+// userCardId는 PAID_OTHER일 때만 보냅니다.
+export const savePaymentResult = (id, body) =>
+  api.put(`/v1/recommendations/${id}/payment`, body);

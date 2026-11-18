@@ -61,8 +61,17 @@ const formatCap = (value, unit) =>
 
 // 혜택 한 줄 (사용량 / 한도 + 진행 바). 한도가 없는 혜택은 이름만 보여줍니다.
 function BenefitItem({ benefit, onEdit, onEnterLimit }) {
-  const { name, used, limit, isLimitEntered = true, isEstimated } = benefit;
-  const isExhausted = used >= limit;
+  const {
+    name,
+    usedInRecommendation,
+    cap,
+    isLimitEntered = true,
+    isEstimated,
+  } = benefit;
+  // 한도가 없는 혜택은 cap이 null입니다.
+  const used = cap?.used ?? 0;
+  const limit = cap?.limit ?? 0;
+  const isExhausted = cap != null && used >= limit;
   const ratio = limit > 0 ? Math.min(used / limit, 1) : 0;
   const categoryIcon = getCategoryIcon(name);
 

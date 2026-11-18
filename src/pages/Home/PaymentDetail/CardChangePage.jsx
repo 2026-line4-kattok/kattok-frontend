@@ -50,12 +50,16 @@ function getCardNote(card, category) {
   return { label: '잔여 한도 기준 적용', discount: card.discount };
 }
 
-function CardOption({ card, category, isSelected, onSelect }) {
-  const note = getCardNote(card, category);
-
+// 카드 선택지 한 줄. note: { label, isWarning?, discount? } (discount가 null이면 '계산 안 됨')
+export function CardOption({ card, note, isSelected, onSelect, disabled }) {
   return (
     <li>
-      <label className="flex w-full cursor-pointer items-center gap-[12px]">
+      <label
+        className={cn(
+          'flex w-full items-center gap-[12px]',
+          disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
+        )}
+      >
         <CardThumbnail card={card} />
         <span className="flex min-w-0 flex-1 flex-col gap-[4px]">
           <span className="truncate font-['Pretendard'] text-[16px] leading-[140%] font-[500] text-[#3B426B]">
@@ -65,7 +69,8 @@ function CardOption({ card, category, isSelected, onSelect }) {
             <span className={cn(note.isWarning && 'text-[#EE695D]')}>
               {note.label}
             </span>
-            {note.discount !== undefined && ` · ${formatWon(note.discount)}`}
+            {note.discount !== undefined &&
+              ` · ${note.discount === null ? '계산 안 됨' : formatWon(note.discount)}`}
           </span>
         </span>
         <input
@@ -74,6 +79,7 @@ function CardOption({ card, category, isSelected, onSelect }) {
           value={card.id}
           checked={isSelected}
           onChange={onSelect}
+          disabled={disabled}
           className="peer sr-only"
         />
         <span
@@ -170,7 +176,7 @@ export default function CardChangePage() {
               <CardOption
                 key={card.id}
                 card={card}
-                category={payment.category}
+                note={getCardNote(card, payment.category)}
                 isSelected={card.id === selectedCardId}
                 onSelect={() => setSelectedCardId(card.id)}
               />

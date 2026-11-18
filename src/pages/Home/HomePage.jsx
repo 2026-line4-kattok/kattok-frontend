@@ -7,12 +7,25 @@ import { getCategoryIcon } from '@/constants/categories';
 import useMerchantCategories from '@/hooks/useMerchantCategories';
 import useHome from '@/hooks/useHome';
 import useRecentMerchants from '@/hooks/useRecentMerchants';
+import useSavePaymentResult, {
+  PAYMENT_RESULT,
+} from '@/hooks/useSavePaymentResult';
+import {
+  getPaymentErrorMessage,
+  getPaymentResultMessage,
+} from '@/utils/paymentResultMessage';
 import { cn } from '@/utils/cn';
 
 const AMOUNT_PATH = '/payment/amount';
 
 // 결제 완료 여부 확인 카드
-function PendingPaymentCard({ payment, onMore, onReject, onConfirm }) {
+function PendingPaymentCard({
+  payment,
+  onMore,
+  onReject,
+  onConfirm,
+  disabled,
+}) {
   const { cardName, place, amount } = payment;
 
   return (
@@ -48,6 +61,7 @@ function PendingPaymentCard({ payment, onMore, onReject, onConfirm }) {
         <button
           type="button"
           onClick={onReject}
+          disabled={disabled}
           aria-label="결제하지 않았어요"
           className="flex flex-1 items-center justify-center bg-[#F8C5C0]"
         >
@@ -56,6 +70,7 @@ function PendingPaymentCard({ payment, onMore, onReject, onConfirm }) {
         <button
           type="button"
           onClick={onConfirm}
+          disabled={disabled}
           aria-label="결제했어요"
           className="flex flex-1 items-center justify-center bg-[#CAD2FF]"
         >
@@ -131,10 +146,13 @@ function EmptyRecentCard({ onClick }) {
 export default function HomePage() {
   const navigate = useNavigate();
   const location = useLocation();
-  // 결제 상세 화면에서 "바로 결제"로 기록하고 돌아온 결제건
-  const [recordedPayment, setRecordedPayment] = useState(
-    location.state?.recordedPayment ?? null,
+  // 결제 확인 저장 결과 안내 { category, title, description, variant: 'success' | 'notPaid' | 'error' }
+  // HOME-15에서 저장하고 돌아오면 location.state.paymentToast로 받습니다.
+  const [paymentToast, setPaymentToast] = useState(
+    location.state?.paymentToast ?? null,
   );
+  const closePaymentToast = useCallback(() => setPaymentToast(null), []);
+  const { mutate: savePayment, isPending: isSaving } = useSavePaymentResult();
   // 홈 요약 (결제 확인 카드·이번 달 챙긴 혜택). 홈에 들어올 때마다 다시 받아옵니다.
   const { data: home, isPending, isError, refetch } = useHome();
   // 업종 칩 (개수·순서·ID는 서버 응답 기준)
@@ -152,30 +170,55 @@ export default function HomePage() {
     refetch: refetchRecent,
   } = useRecentMerchants();
   const monthlyBenefit = home?.savedBenefit.amount;
-  // 화면에서 [네]/[X]로 처리한 결제건. 결제 확인 API 연동 전까지 화면에서만 숨깁니다.
-  const [dismissedPaymentId, setDismissedPaymentId] = useState(
-    location.state?.recordedPayment?.id ?? null,
-  );
+  // 저장에 성공한 결제건은 홈을 다시 받아오기 전까지 바로 숨깁니다.
+  const [savedPaymentId, setSavedPaymentId] = useState(null);
   const pendingPayment =
-    home?.pendingPayment && home.pendingPayment.id !== dismissedPaymentId
+    home?.pendingPayment && home.pendingPayment.id !== savedPaymentId
       ? home.pendingPayment
       : null;
-  // 결제 기록을 거부한 결제건 (토스트에 업종 아이콘을 보여주기 위해 보관)
-  const [rejectedPayment, setRejectedPayment] = useState(null);
-  const closeRejectToast = useCallback(() => setRejectedPayment(null), []);
-  const closeRecordToast = useCallback(() => setRecordedPayment(null), []);
 
   // 새로고침·뒤로 가기 시 토스트가 다시 뜨지 않도록 전달받은 state를 비웁니다.
   useEffect(() => {
-    if (location.state?.recordedPayment) {
+    if (location.state?.paymentToast) {
       navigate(location.pathname, { replace: true, state: null });
     }
   }, [location.pathname, location.state, navigate]);
 
-  const handleRejectPayment = () => {
-    // TODO: PUT /recommendations/{id}/payment (NOT_PAID) 연동 후 홈을 다시 조회합니다.
-    setRejectedPayment(pendingPayment);
-    setDismissedPaymentId(pendingPayment.id);
+  // 결제 확인 카드의 [네](PAID_RECOMMENDED) / [X](NOT_PAID) 저장
+  const handleSavePayment = (result) => {
+    const payment = pendingPayment;
+    savePayment(
+      { recommendationId: payment.id, result },
+      {
+        onSuccess: (response) => {
+          setSavedPaymentId(payment.id);
+          const message = getPaymentResultMessage(response, payment.place);
+          setPaymentToast({
+            category: payment.category,
+            title: message.title,
+            description: message.description,
+            variant: message.isNotPaid ? 'notPaid' : 'success',
+          });
+        },
+        onError: (error) =>
+          setPaymentToast({
+            category: payment.category,
+            ...getPaymentErrorMessage(error),
+            variant: 'error',
+          }),
+      },
+    );
+  };
+
+  const goToCardSelect = () => navigate(`/pending/${pendingPayment.id}/card`);
+
+  const handleConfirmPayment = () => {
+    // 추천 카드가 삭제됐으면 추천 카드로 결제를 새로 고를 수 없으므로 다른 카드 선택으로 보냅니다.
+    if (pendingPayment.isCardDeleted) {
+      goToCardSelect();
+      return;
+    }
+    handleSavePayment(PAYMENT_RESULT.PAID_RECOMMENDED);
   };
 
   // 조회 실패(5xx 등)는 빈 홈으로 숨기지 않고 다시 시도 안내를 보여 줍니다.
@@ -225,10 +268,11 @@ export default function HomePage() {
           {pendingPayment && (
             <PendingPaymentCard
               payment={pendingPayment}
-              onMore={() => navigate(`/payment/${pendingPayment.id}`)}
-              onReject={handleRejectPayment}
-              // TODO: PUT /recommendations/{id}/payment (PAID_RECOMMENDED) 연동 후 홈을 다시 조회합니다.
-              onConfirm={() => setDismissedPaymentId(pendingPayment.id)}
+              // [다른 카드로] → HOME-15에서 5-1 선택지를 받아 실제 결제한 카드를 고릅니다.
+              onMore={goToCardSelect}
+              onReject={() => handleSavePayment(PAYMENT_RESULT.NOT_PAID)}
+              onConfirm={handleConfirmPayment}
+              disabled={isSaving}
             />
           )}
         </div>
@@ -337,38 +381,35 @@ export default function HomePage() {
         </section>
       </main>
 
-      {rejectedPayment && (
+      {paymentToast && (
         <Toast
-          categoryIcon={getCategoryIcon(rejectedPayment.category)}
+          categoryIcon={getCategoryIcon(paymentToast.category)}
           icon={
-            <span className="flex size-[24px] items-center justify-center rounded-full bg-[#E46A5E]">
-              <X className="size-[18px] text-[#FAFAFA]" strokeWidth={2} />
-            </span>
-          }
-          title={<span className="text-[#EE695D]">결제 기록 거부됨</span>}
-          description="추후에 일괄로 등록할 수 있어요"
-          // TODO: 일괄 등록 화면이 정해지면 연결합니다.
-          onClick={closeRejectToast}
-          onClose={closeRejectToast}
-        />
-      )}
-
-      {recordedPayment && (
-        <Toast
-          categoryIcon={getCategoryIcon(recordedPayment.category)}
-          icon={
-            <span className="flex size-[24px] items-center justify-center rounded-full bg-[#8C9EFF]">
-              <Check className="size-[18px] text-[#FAFAFA]" strokeWidth={2} />
-            </span>
+            paymentToast.variant === 'success' ? (
+              <span className="flex size-[24px] items-center justify-center rounded-full bg-[#8C9EFF]">
+                <Check className="size-[18px] text-[#FAFAFA]" strokeWidth={2} />
+              </span>
+            ) : (
+              <span className="flex size-[24px] items-center justify-center rounded-full bg-[#E46A5E]">
+                <X className="size-[18px] text-[#FAFAFA]" strokeWidth={2} />
+              </span>
+            )
           }
           title={
-            <span className="text-[#A3B1FF]">
-              {recordedPayment.discount.toLocaleString('ko-KR')}원 기록
+            <span
+              className={
+                paymentToast.variant === 'success'
+                  ? 'text-[#A3B1FF]'
+                  : 'text-[#EE695D]'
+              }
+            >
+              {paymentToast.title}
             </span>
           }
-          description={`${recordedPayment.place} 결제건에 대한 혜택을 받았어요`}
-          onClick={() => navigate(`/payment/${recordedPayment.id}`)}
-          onClose={closeRecordToast}
+          description={paymentToast.description}
+          hasArrow={false}
+          onClick={closePaymentToast}
+          onClose={closePaymentToast}
         />
       )}
 
