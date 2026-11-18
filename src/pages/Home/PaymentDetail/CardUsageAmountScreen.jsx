@@ -115,8 +115,8 @@ function AmountStep({
 }) {
   return (
     <>
-      <main className="mx-auto flex min-h-0 w-full max-w-[402px] flex-1 flex-col px-[22px] max-phone-xs:px-3">
-        <div className="mt-[32px] flex items-center gap-[10px]">
+      <main className="mx-auto flex min-h-0 w-full max-w-[402px] flex-1 [scrollbar-width:none] flex-col overflow-y-auto px-[22px] max-phone-xs:px-3 [&::-webkit-scrollbar]:hidden">
+        <div className="mt-[clamp(12px,4dvh,32px)] flex shrink-0 items-center gap-[10px]">
           <span className="relative h-[32px] w-[50px] shrink-0 overflow-hidden rounded-[2px]">
             <img
               src={card.image}
@@ -134,7 +134,7 @@ function AmountStep({
           </span>
         </div>
 
-        <h2 className="mt-[8px] font-['Pretendard'] text-[24px] leading-[120%] font-[600] text-[#121212]">
+        <h2 className="mt-[8px] shrink-0 font-['Pretendard'] text-[24px] leading-[120%] font-[600] break-keep text-[#121212]">
           {step.title}
         </h2>
 
@@ -142,10 +142,10 @@ function AmountStep({
           amount={amount}
           placeholder={step.placeholder}
           unit={step.unit}
-          className="mt-[48px]"
+          className="mt-[clamp(20px,6dvh,48px)]"
         />
 
-        <div className="pt-[48px]">
+        <div className="flex min-h-0 flex-1 flex-col pt-[clamp(16px,6dvh,48px)]">
           <AmountKeypad
             onDigit={onDigit}
             onDelete={onDelete}
@@ -155,7 +155,7 @@ function AmountStep({
         </div>
       </main>
 
-      <div className="mx-auto w-full max-w-[402px] shrink-0 px-6 pt-[40px] pb-[max(44px,env(safe-area-inset-bottom))] max-phone-s:pt-[24px] max-phone-xs:px-3">
+      <div className="mx-auto w-full max-w-[402px] shrink-0 px-6 pt-[clamp(12px,5dvh,40px)] pb-[max(clamp(16px,5dvh,44px),env(safe-area-inset-bottom))] max-phone-xs:px-3">
         <button
           type="button"
           onClick={() => onSave(amount)}
@@ -248,7 +248,7 @@ export default function CardUsageAmountScreen({
               }
         }
       >
-        <div className="mx-auto w-full max-w-[402px] shrink-0 px-4 pt-[71px] max-phone-xs:px-3">
+        <div className="mx-auto w-full max-w-[402px] shrink-0 px-4 pt-[calc(var(--screen-top)+9px)] max-phone-xs:px-3">
           <header className="relative flex min-h-[40px] w-full items-center justify-between gap-2">
             <button
               type="button"
