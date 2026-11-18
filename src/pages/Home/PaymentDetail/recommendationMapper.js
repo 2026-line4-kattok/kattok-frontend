@@ -1,3 +1,6 @@
+// 결제 카드 변경에서 '미등록 카드'를 고른 경우의 카드 id
+export const UNREGISTERED_CARD_ID = 'unregistered';
+
 // 4-5 추천 생성 응답 → 결과 화면(HOME-02·02B·14)·카드 변경 화면에서 쓰는 형태
 
 const ASSUMPTION_ORDER = {
