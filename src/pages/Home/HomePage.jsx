@@ -242,7 +242,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-dvh bg-[#F1F1F1]">
-      <main className="mx-auto flex w-full max-w-[402px] flex-[1_0_0] flex-col items-start gap-[24px] self-stretch px-[18px] pt-[86px] pb-[calc(80px+max(28px,env(safe-area-inset-bottom)))] max-phone-xs:px-3">
+      <main className="mx-auto flex w-full max-w-[402px] flex-[1_0_0] flex-col items-start gap-[24px] self-stretch px-[18px] pt-[calc(var(--screen-top)+24px)] pb-[calc(80px+max(28px,env(safe-area-inset-bottom)))] max-phone-xs:px-3">
         <div className="flex flex-col gap-[6px]">
           <h1 className="font-['Pretendard'] text-[24px] leading-[120%] font-semibold text-[#121212]">
             어디서 결제하세요?

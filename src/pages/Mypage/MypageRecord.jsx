@@ -119,14 +119,14 @@ function PaymentHistory({
                 onClick={() => onEdit(item)}
               >
                 <CardImage card={item.card} />
-                <span
-                  className="flex min-w-0 flex-1 flex-col gap-1 [&>span]:text-[14px] [&>span]:text-[#8E8E8E] [&>strong]:text-[16px] [&>strong]:font-medium [&>strong]:text-[#3B426B]"
-                >
+                <span className="flex min-w-0 flex-1 flex-col gap-1 [&>span]:text-[14px] [&>span]:text-[#8E8E8E] [&>strong]:text-[16px] [&>strong]:font-medium [&>strong]:text-[#3B426B]">
                   <strong>{item.place}</strong>
                   <span>
                     {won(item.amount)} · {item.card.name}
                   </span>
-                  {item.result === 'PAID_OTHER' && <span>추천: {item.recommendedCard?.productName}</span>}
+                  {item.result === 'PAID_OTHER' && (
+                    <span>추천: {item.recommendedCard?.productName}</span>
+                  )}
                 </span>
                 <strong
                   className={
@@ -359,8 +359,15 @@ function CardImage({
 }) {
   if (card.id === 'other' && !landscape) {
     return (
-      <span className="relative inline-block h-[60px] w-10 shrink-0 overflow-hidden rounded-[5px] bg-[#D6D6D6]" aria-hidden="true">
-        <img src={empty} alt="" className="absolute top-1/2 left-1/2 h-[66.67%] w-[150%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-90 object-contain" />
+      <span
+        className="relative inline-block h-[60px] w-10 shrink-0 overflow-hidden rounded-[5px] bg-[#D6D6D6]"
+        aria-hidden="true"
+      >
+        <img
+          src={empty}
+          alt=""
+          className="absolute top-1/2 left-1/2 h-[66.67%] w-[150%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-90 object-contain"
+        />
       </span>
     );
   }

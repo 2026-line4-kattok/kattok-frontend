@@ -211,7 +211,7 @@ export default function Login() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-[430px] flex-col bg-neutral-100 px-5">
-      <div className="h-[62px] w-max"></div>
+      <div className="h-[var(--screen-top)] w-max"></div>
       {/* 상단 뒤로가기 */}
       <header className="flex h-12 items-center">
         <button

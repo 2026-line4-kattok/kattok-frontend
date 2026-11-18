@@ -119,7 +119,7 @@ const COMPANIES = [
   { id: 'samsung', name: '삼성카드', cardLabel: '삼성카드', logo: ss },
   { id: 'hyundai', name: '현대카드', cardLabel: '현대카드', logo: hd },
   { id: 'toss', name: '토스뱅크', cardLabel: '토스뱅크 카드', logo: ts },
-  { id: 'ibk', name: 'IBK카드',  logo: ibk },
+  { id: 'ibk', name: 'IBK카드', logo: ibk },
   { id: 'lotte', name: '롯데카드', logo: lotte },
   { id: 'kakao', name: '카카오뱅크', logo: kakao },
   { id: 'kbank', name: '케이뱅크', logo: kbank },
@@ -367,22 +367,26 @@ export default function Signup() {
 
         setCatalogError('');
         setCompanies(
-          issuers.map((issuer) => {
-            const companyInfo = COMPANIES.find(
-              (item) =>
-                [item.name, ...(item.aliases ?? [])].some((name) =>
-                  normalizeIssuer(name) === normalizeIssuer(issuer.name),
+          issuers
+            .map((issuer) => {
+              const companyInfo = COMPANIES.find((item) =>
+                [item.name, ...(item.aliases ?? [])].some(
+                  (name) =>
+                    normalizeIssuer(name) === normalizeIssuer(issuer.name),
                 ),
-            );
+              );
 
-            return {
-              ...issuer,
-              name: companyInfo?.name ?? issuer.name,
-              logo: companyInfo?.logo,
-              cardLabel: issuer.name,
-              displayOrder: companyInfo ? COMPANIES.indexOf(companyInfo) : COMPANIES.length,
-            };
-          }).sort((a, b) => a.displayOrder - b.displayOrder),
+              return {
+                ...issuer,
+                name: companyInfo?.name ?? issuer.name,
+                logo: companyInfo?.logo,
+                cardLabel: issuer.name,
+                displayOrder: companyInfo
+                  ? COMPANIES.indexOf(companyInfo)
+                  : COMPANIES.length,
+              };
+            })
+            .sort((a, b) => a.displayOrder - b.displayOrder),
         );
       } catch {
         if (!cancelled) {
@@ -635,7 +639,7 @@ export default function Signup() {
   if (policy) {
     return (
       <div ref={pageRef} className={cn(SHELL, 'pb-8')}>
-        <header className="mt-[62px] flex h-14 shrink-0 items-center">
+        <header className="mt-[var(--screen-top)] flex h-14 shrink-0 items-center">
           <button
             type="button"
             onClick={() =>
@@ -658,7 +662,12 @@ export default function Signup() {
   /* ── 회원가입 완료 (카드 등록 안내) ── */
   if (screen === 'welcome') {
     return (
-      <div className={cn(SHELL, 'items-center pt-[200px]')}>
+      <div
+        className={cn(
+          SHELL,
+          'items-center pt-[calc(var(--screen-top)+138px)] max-phone-s:pt-[calc(var(--screen-top)+80px)]',
+        )}
+      >
         <DoneHead title="회원가입 완료!" desc="이어서 카드를 등록해요" />
         <div className="mt-8 h-[160px] w-full animate-pulse rounded-[24px] bg-[#D6D6D6]" />
         <div className="mt-auto flex w-full flex-col items-center gap-3 pb-11">
@@ -678,7 +687,12 @@ export default function Signup() {
   /* ── 불러오기 완료 ── */
   if (screen === 'done') {
     return (
-      <div className={cn(SHELL, 'items-center pt-[184px]')}>
+      <div
+        className={cn(
+          SHELL,
+          'items-center pt-[calc(var(--screen-top)+122px)] max-phone-s:pt-[calc(var(--screen-top)+64px)]',
+        )}
+      >
         <div className="flex size-20 shrink-0 items-center justify-center rounded-full bg-[#CDD3FF]">
           <Check className="size-12 text-[#F4F5FF]" strokeWidth={3} />
         </div>
@@ -724,7 +738,7 @@ export default function Signup() {
       )}
     >
       {/* 상단: 뒤로가기 + 스텝 인디케이터 + 건너뛰기 */}
-      <header className="relative mt-[62px] flex h-14 shrink-0 items-center">
+      <header className="relative mt-[var(--screen-top)] flex h-14 shrink-0 items-center">
         <button type="button" onClick={handleBack} aria-label="뒤로 가기">
           <ChevronLeft className="size-6 cursor-pointer text-[#CACACA]" />
         </button>

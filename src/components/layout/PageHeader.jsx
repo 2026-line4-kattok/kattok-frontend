@@ -16,7 +16,7 @@ function HeaderIconButton({ label, onClick, children }) {
 // 결제·혜택 흐름에서 쓰는 공통 상단 헤더 (뒤로 가기 · 제목 · 닫기)
 export default function PageHeader({ title, subtitle, onBack, onClose }) {
   return (
-    <div className="mx-auto w-full max-w-[402px] shrink-0 px-4 pt-[71px] max-phone-xs:px-3">
+    <div className="mx-auto w-full max-w-[402px] shrink-0 px-4 pt-[calc(var(--screen-top)+9px)] max-phone-xs:px-3">
       <header className="flex min-h-[40px] w-full items-center justify-between gap-2">
         <HeaderIconButton label="뒤로 가기" onClick={onBack}>
           <ChevronLeft

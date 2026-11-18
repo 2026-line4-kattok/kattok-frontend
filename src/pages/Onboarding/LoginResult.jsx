@@ -83,7 +83,7 @@ export default function LoginResult({ cards, loading = false }) {
     'h-[54px] w-full cursor-pointer rounded-[8px] bg-[#A3B1FF] text-[20px] font-semibold text-[#3B426B]';
 
   return (
-    <div className="mx-auto flex h-dvh max-w-[402px] [scrollbar-width:none] flex-col items-center overflow-x-hidden overflow-y-auto bg-[#F1F1F1] pt-[190px] [&::-webkit-scrollbar]:hidden">
+    <div className="mx-auto flex h-dvh max-w-[402px] [scrollbar-width:none] flex-col items-center overflow-x-hidden overflow-y-auto bg-[#F1F1F1] pt-[calc(var(--screen-top)+128px)] max-phone-s:pt-[calc(var(--screen-top)+72px)] [&::-webkit-scrollbar]:hidden">
       <img
         src={hasCards ? login_check : login_help}
         alt=""
