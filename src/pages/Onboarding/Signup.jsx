@@ -20,11 +20,89 @@ import search from '@/assets/onboarding/Search.svg';
 
 import help from '@/assets/onboarding/help.svg';
 import api from '@/api/axiosInstance';
-import { getSpendingOptions, registerProduct } from './signupPerformance';
 import { saveAuthSession } from './authSession';
 import { dissolve } from './dissolve';
+import { slideBack } from './backTransition';
 import PolicyService from '@/pages/Mypage/PolicyService';
 import PolicyPrivacy from '@/pages/Mypage/PolicyPrivacy';
+const amountLabel = (amount) =>
+  amount % 10000 === 0
+    ? `${amount / 10000}만 원`
+    : `${amount.toLocaleString('ko-KR')}원`;
+
+const benefitLabel = (benefits = []) =>
+  [
+    ...new Set(benefits.map((benefit) => benefit.displayText).filter(Boolean)),
+  ].join(' · ');
+
+function getSpendingOptions(product) {
+  if (!product || ['NONE', 'NEEDS_CHECK'].includes(product.performanceType))
+    return [];
+  const tiers = [...(product.performanceTiers ?? [])].sort(
+    (a, b) => a.level - b.level,
+  );
+  const options = [];
+  if (tiers.length > 0 && tiers[0].minAmount > 0) {
+    options.push({
+      id: 'BELOW',
+      title: `${amountLabel(tiers[0].minAmount)} 미만`,
+      desc:
+        benefitLabel(product.alwaysOnBenefits) ||
+        '실적 조건 없이 제공되는 혜택만 적용돼요',
+      performance: { status: 'BELOW' },
+    });
+  }
+  options.push(
+    ...tiers.map((tier) => ({
+      id: `TIER-${tier.id}`,
+      title: tier.label || `${amountLabel(tier.minAmount)} 이상`,
+      desc:
+        benefitLabel(tier.benefits) || '선택한 실적 구간으로 혜택을 계산해요',
+      performance: { status: 'CONFIRMED', tierId: tier.id },
+    })),
+  );
+  options.push({
+    id: 'UNKNOWN',
+    title: '모르겠어요',
+    desc: '실적을 확인한 뒤 내 카드에서 수정할 수 있어요',
+    performance: { status: 'UNKNOWN' },
+  });
+  return options;
+}
+
+function buildRegistrationRequest(product, selection) {
+  if (!Number.isInteger(product?.id) || product.id <= 0)
+    throw new Error('카드를 다시 선택해주세요.');
+  if (['NONE', 'NEEDS_CHECK'].includes(product.performanceType))
+    return { productId: product.id };
+  if (!['SINGLE', 'MULTIPLE'].includes(product.performanceType))
+    throw new Error('카드 실적 정보를 확인하지 못했어요.');
+  const option = getSpendingOptions(product).find(
+    (item) => item.id === selection,
+  );
+  if (!option) throw new Error('지난달 실적을 선택해주세요.');
+  return { productId: product.id, performance: option.performance };
+}
+
+async function registerProduct(client, product, selection) {
+  const body = buildRegistrationRequest(product, selection);
+  try {
+    return await client.post('/v1/owned-cards', body);
+  } catch (error) {
+    if (
+      error.response?.status !== 409 ||
+      error.response?.data?.code !== 'CARD_ALREADY_REGISTERED'
+    )
+      throw error;
+    const cards = await client.get('/v1/owned-cards');
+    const existing =
+      Array.isArray(cards) &&
+      cards.find((card) => card.product?.id === product.id);
+    if (!existing) throw error;
+    return existing;
+  }
+}
+
 const STEPS = [1, 2, 3, 4];
 
 // 로고 연결용 정보입니다. 카드사 목록과 순서는 서버 응답을 사용합니다.
@@ -170,7 +248,11 @@ function LandscapeCard({ src, text, className, isHorizontal = false }) {
       <Thumb
         src={src}
         text={text}
-        className={isHorizontal ? 'h-full w-full' : 'absolute top-1/2 left-1/2 h-[157.45%] w-[63.51%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-270'}
+        className={
+          isHorizontal
+            ? 'h-full w-full'
+            : 'absolute top-1/2 left-1/2 h-[157.45%] w-[63.51%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-270'
+        }
       />
     </div>
   );
@@ -222,6 +304,7 @@ export default function Signup() {
   const [selecting, setSelecting] = useState(false);
   const registrationLock = useRef(false);
   const selectionLock = useRef(false);
+  const pageRef = useRef(null);
 
   const pwFilled = form.password !== '';
   const pwValid =
@@ -462,7 +545,10 @@ export default function Signup() {
       return;
     }
 
-    setStep((prev) => prev - 1);
+    slideBack(
+      () => setStep((prev) => prev - 1),
+      () => pageRef.current,
+    );
   };
 
   const resetCard = () => {
@@ -536,11 +622,16 @@ export default function Signup() {
   };
   if (policy) {
     return (
-      <div className={cn(SHELL, 'pb-8')}>
+      <div ref={pageRef} className={cn(SHELL, 'pb-8')}>
         <header className="mt-[62px] flex h-14 shrink-0 items-center">
           <button
             type="button"
-            onClick={() => setPolicy(null)}
+            onClick={() =>
+              slideBack(
+                () => setPolicy(null),
+                () => pageRef.current,
+              )
+            }
             aria-label="회원가입으로 돌아가기"
             className="cursor-pointer"
           >
@@ -613,6 +704,7 @@ export default function Signup() {
   /* ── 1~4단계 ── */
   return (
     <div
+      ref={pageRef}
       className={cn(
         SHELL,
         step === 3 &&
@@ -656,7 +748,9 @@ export default function Signup() {
       </header>
 
       {catalogError && step !== 3 && (
-        <p role="alert" className="my-4 text-[14px] text-[#EE695D]">{catalogError}</p>
+        <p role="alert" className="my-4 text-[14px] text-[#EE695D]">
+          {catalogError}
+        </p>
       )}
 
       {/* 1단계: 아이디 / 비밀번호 */}
@@ -883,10 +977,14 @@ export default function Signup() {
           {(selecting || registering || catalogError) && (
             <div className="sticky top-0 z-10 bg-[#F1F1F1] py-3 text-[14px]">
               {catalogError ? (
-                <p role="alert" className="text-[#EE695D]">{catalogError}</p>
+                <p role="alert" className="text-[#EE695D]">
+                  {catalogError}
+                </p>
               ) : (
                 <p role="status" className="text-[#4B4B4B]">
-                  {registering ? '카드를 등록하고 있어요...' : '카드의 실적 조건을 확인하고 있어요...'}
+                  {registering
+                    ? '카드를 등록하고 있어요...'
+                    : '카드의 실적 조건을 확인하고 있어요...'}
                 </p>
               )}
             </div>
@@ -916,7 +1014,11 @@ export default function Signup() {
                         <Thumb
                           src={c.image}
                           text=""
-                          className={c.isHorizontal ? 'absolute top-1/2 left-1/2 h-[63.33%] w-[157.89%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-90' : 'h-full w-full'}
+                          className={
+                            c.isHorizontal
+                              ? 'absolute top-1/2 left-1/2 h-[63.33%] w-[157.89%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-90'
+                              : 'h-full w-full'
+                          }
                         />
                         {isSelected && (
                           <div className="absolute inset-0 bg-[#3B426BBF]" />
@@ -965,7 +1067,11 @@ export default function Signup() {
                       <img
                         src={c.image}
                         alt=""
-                        className={c.isHorizontal ? 'h-full w-full object-contain' : 'absolute top-1/2 left-1/2 h-[148px] w-[94px] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-270 object-contain'}
+                        className={
+                          c.isHorizontal
+                            ? 'h-full w-full object-contain'
+                            : 'absolute top-1/2 left-1/2 h-[148px] w-[94px] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-270 object-contain'
+                        }
                       />
                     </div>
                     <span className="flex min-w-0 flex-1 items-center justify-center px-3 text-center text-[14px] text-[#8E8E8E]">

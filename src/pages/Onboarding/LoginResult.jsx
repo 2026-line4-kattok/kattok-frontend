@@ -56,7 +56,11 @@ function CardCarousel({ cards, loading }) {
               src={card.image}
               alt={card.name}
               draggable={false}
-              className={card.isHorizontal ? 'absolute top-1/2 left-1/2 h-[63.24%] w-[158.14%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-90 rounded-[14px] object-contain' : 'h-full w-full rounded-[14px] object-contain'}
+              className={
+                card.isHorizontal
+                  ? 'absolute top-1/2 left-1/2 h-[63.24%] w-[158.14%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-90 rounded-[14px] object-contain'
+                  : 'h-full w-full rounded-[14px] object-contain'
+              }
             />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-[14px] bg-[#DBE1FF] px-5 text-center">
