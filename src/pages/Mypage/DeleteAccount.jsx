@@ -34,7 +34,7 @@ function Withdrawal({
           <dd>{won(summary.savedBenefitTotal)}</dd>
         </div>
         <div>
-          <dt>입력한 실적·입력한 실적</dt>
+          <dt>입력한 실적·한도</dt>
         </div>
       </dl>
       <label className="mt-[21px] flex cursor-pointer items-center gap-3 text-[16px] leading-[1.4] font-medium text-[#3B426B]">

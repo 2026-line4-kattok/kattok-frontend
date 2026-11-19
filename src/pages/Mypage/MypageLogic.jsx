@@ -5,6 +5,7 @@ import taxi from '@/assets/mypage/icon/taxi.png';
 import convenience from '@/assets/mypage/icon/convenience.png';
 import restaurant from '@/assets/mypage/icon/restaurant.png';
 import shopping from '@/assets/mypage/icon/shopping.png';
+import departmentStore from '@/assets/3DIcons/department_store.png';
 function Calculation() {
   return (
     <article className="[&_h3]:mb-[18px] [&_h3]:text-[18px] [&_h3]:font-semibold [&_h3]:text-[#4B4B4B] [&>h2]:mt-6 [&>h2]:mb-2 [&>h2]:text-[24px] [&>h2]:font-semibold [&>h2]:text-[#121212] [&>p]:text-[16px] [&>p]:text-[#4B4B4B] [&>section]:mt-6">
@@ -24,6 +25,7 @@ function Calculation() {
             { label: '택시', icon: taxi },
             { label: '편의점', icon: convenience },
             { label: '음식점', icon: restaurant },
+            { label: '백화점', icon: departmentStore },
             { label: '온라인 쇼핑', icon: shopping },
           ].map(({ label, icon }) => (
             <span
@@ -50,7 +52,7 @@ function Calculation() {
           <h4 className="font-medium">추천 미반영</h4>
           <p className="font-regular">
             해외 결제 · 공과금 · 통신요금 · 금융상품 · 무이자 할부 · 마일리지 ·
-            가장 높은 혜택
+            기간 한정 이벤트
           </p>
           <p>
             현재 소유한 카드로 미리 계산하기 위한 추천 계산이므로 실제 청구
