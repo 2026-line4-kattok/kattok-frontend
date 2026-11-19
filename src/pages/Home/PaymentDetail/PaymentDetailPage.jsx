@@ -3,6 +3,9 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { X } from 'lucide-react';
 import Toast from '@/components/common/Toast';
 import PageHeader from '@/components/layout/PageHeader';
+import useConfirmOnLeave, {
+  hasRecommendedCard,
+} from '@/hooks/useConfirmOnLeave';
 import useConfirmRecommendation, {
   isNoRecommendedCardError,
   isRecommendationNotFoundError,
@@ -19,7 +22,10 @@ import useRecommendation, {
 import useUpdateOwnedCardState from '@/hooks/useUpdateOwnedCardState';
 import { toOwnedCardStateRequest } from '@/pages/Card/ownedCardMapper';
 import { cn } from '@/utils/cn';
-import { getPaymentErrorMessage } from '@/utils/paymentResultMessage';
+import {
+  getPaymentErrorMessage,
+  getPaymentResultMessage,
+} from '@/utils/paymentResultMessage';
 import CardUsageAmountScreen from './CardUsageAmountScreen';
 import CardUsageSheet from './CardUsageSheet';
 import PaymentDetailSkeleton from './PaymentDetailSkeleton';
@@ -429,6 +435,11 @@ export default function PaymentDetailPage() {
   );
   // 사용 현황을 저장하고 다시 추천받는 동안 스켈레톤을 보여 줍니다.
   const isRecalculating = isSavingState || isRecommending;
+  // [X]·뒤로 가기 등으로 화면을 벗어나면 홈의 결제 확인 카드로 결제 여부를 묻습니다.
+  const skipConfirmOnLeave = useConfirmOnLeave(
+    recommendation?.id,
+    hasRecommendedCard(recommendation),
+  );
 
   if (!recommendation) {
     return (
@@ -440,10 +451,8 @@ export default function PaymentDetailPage() {
     );
   }
 
-  const { cards, recommendedCardId, overallStatus } = recommendation;
-  const hasRecommendation =
-    recommendedCardId != null &&
-    (overallStatus === 'CONFIRMED' || overallStatus === 'CONDITIONAL');
+  const { cards, recommendedCardId } = recommendation;
+  const hasRecommendation = hasRecommendedCard(recommendation);
   const isUnregistered = selectedCardId === UNREGISTERED_CARD_ID;
   const selectedCard = isUnregistered
     ? UNREGISTERED_CARD
@@ -514,37 +523,49 @@ export default function PaymentDetailPage() {
     );
   };
 
-  // [바로 결제] → 결제 확인 대기 기록(4-7). 실제 결제 여부는 홈의 결제 확인 카드에서 받습니다.
-  // 미등록 카드: 대기 기록 생성(4-7) → 미등록 카드 결제로 확정(5-2) → 홈 44 토스트
-  const recordUnregistered = () =>
+  // [바로 결제] → 대기 기록 생성(4-7) → 고른 카드로 결제 확정(5-2) → 홈 토스트
+  // 결제 확인 카드는 띄우지 않습니다. (X·화면 이탈 시에만 결제 확인 카드로 묻습니다)
+  const recordPayment = () => {
+    const result = isUnregistered
+      ? PAYMENT_RESULT.PAID_UNREGISTERED
+      : isRecommendedSelected
+        ? PAYMENT_RESULT.PAID_RECOMMENDED
+        : PAYMENT_RESULT.PAID_OTHER;
     savePayment(
       {
         recommendationId: recommendation.id,
-        result: PAYMENT_RESULT.PAID_UNREGISTERED,
+        result,
+        userCardId: selectedCard?.id,
       },
       {
-        onSuccess: () =>
+        onSuccess: (response) => {
+          const message = isUnregistered
+            ? {
+                title: '기록했어요',
+                description: '미등록 카드로 혜택 정보가 확인되지 않았어요.',
+              }
+            : getPaymentResultMessage(response, recommendation.place);
+          skipConfirmOnLeave();
           navigate('/', {
             replace: true,
             state: {
               paymentToast: {
                 category: recommendation.category,
-                title: '기록했어요',
-                description: '미등록 카드로 혜택 정보가 확인되지 않았어요.',
+                title: message.title,
+                description: message.description,
                 variant: 'success',
               },
             },
-          }),
+          });
+        },
         onError: (error) => setErrorToast(getPaymentErrorMessage(error)),
       },
     );
+  };
 
   const handleConfirm = () =>
     confirmPayment(recommendation.id, {
-      onSuccess: () =>
-        isUnregistered
-          ? recordUnregistered()
-          : navigate('/', { replace: true }),
+      onSuccess: recordPayment,
       onError: (error) =>
         setErrorToast(
           isNoRecommendedCardError(error)
