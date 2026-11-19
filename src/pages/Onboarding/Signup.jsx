@@ -405,7 +405,7 @@ export default function Signup() {
   }, [step]);
 
   useEffect(() => {
-    if (step !== 3 || company == null) return;
+    if (step !== 3) return;
 
     let cancelled = false;
 
@@ -418,7 +418,7 @@ export default function Signup() {
       try {
         const result = await api.get('/v1/card-products', {
           params: {
-            issuerId: company,
+            ...(company != null && { issuerId: company }),
             ...(debounced.trim() && { keyword: debounced.trim() }),
             ...(filter !== '전체' && {
               cardType: filter === '신용카드' ? 'CREDIT' : 'CHECK',
@@ -546,7 +546,7 @@ export default function Signup() {
     } catch (err) {
       setSignupError(
         err.response?.data?.message ||
-          '회원가입하지 못했어요. 네트워크 상태를 확인하고 다시 시도해주세요.',
+        '회원가입하지 못했어요. 네트워크 상태를 확인하고 다시 시도해주세요.',
       );
     } finally {
       setSubmitting(false);
@@ -599,8 +599,8 @@ export default function Signup() {
     } catch (error) {
       setCatalogError(
         error.response?.data?.message ||
-          error.message ||
-          '카드를 등록하지 못했어요. 다시 시도해주세요.',
+        error.message ||
+        '카드를 등록하지 못했어요. 다시 시도해주세요.',
       );
     } finally {
       registrationLock.current = false;
@@ -629,7 +629,7 @@ export default function Signup() {
     } catch (error) {
       setCatalogError(
         error.response?.data?.message ||
-          '카드 정보를 불러오지 못했어요. 다시 선택해주세요.',
+        '카드 정보를 불러오지 못했어요. 다시 선택해주세요.',
       );
     } finally {
       selectionLock.current = false;
@@ -734,7 +734,7 @@ export default function Signup() {
       className={cn(
         SHELL,
         step === 3 &&
-          'h-dvh min-h-0 [scrollbar-width:none] overflow-x-hidden overflow-y-auto [&::-webkit-scrollbar]:hidden',
+        'h-dvh min-h-0 [scrollbar-width:none] overflow-x-hidden overflow-y-auto [&::-webkit-scrollbar]:hidden',
       )}
     >
       {/* 상단: 뒤로가기 + 스텝 인디케이터 + 건너뛰기 */}
@@ -779,7 +779,7 @@ export default function Signup() {
         </p>
       )}
 
-      {/* 1단계: 아이디 / 비밀번호 */}
+      {/* 1단계: 이메일 / 비밀번호 */}
       {step === 1 && (
         <form onSubmit={handleSubmit} className="group flex flex-1 flex-col">
           <div className="mt-6">
@@ -787,13 +787,13 @@ export default function Signup() {
               만나서 반가워요!
             </h1>
             <p className="mt-2 text-[16px] font-normal text-[#4B4B4B]">
-              아이디와 비밀번호를 입력해주세요
+              이메일과 비밀번호를 입력해주세요
             </p>
           </div>
 
           <div className="mt-16 flex flex-col gap-[18px]">
             <FloatingField
-              label="아이디"
+              label="이메일"
               name="id"
               value={form.id}
               onChange={handleChange}
@@ -823,8 +823,7 @@ export default function Signup() {
               {pwFilled && !pwValid && (
                 <p className="mt-[3.5px] flex items-center gap-1 text-[12px] text-[#EE695D]">
                   <img src={warning} alt="" className="size-4 shrink-0" />
-                  비밀번호는 8~64자, UTF-8 기준 72바이트 이내로 입력해주세요.
-                </p>
+                  대문자, 숫자, 특수문자를 포함하여 8자가 되어야 합니다.                </p>
               )}
               {pwFilled && pwValid && (
                 <p className="mt-2 text-[12px] text-[#3FB179]">
@@ -1042,7 +1041,7 @@ export default function Signup() {
                           text=""
                           className={
                             c.isHorizontal
-                              ? 'absolute top-1/2 left-1/2 h-[63.33%] w-[157.89%] max-w-none -translate-x-1/2 -translate-y-1/2 rotate-90'
+                              ? 'absolute top-1/2 left-1/2 h-[63.33%] w-[157.89%] max-w-none [transform:translate(-50%,-50%)_rotate(90deg)]'
                               : 'h-full w-full'
                           }
                         />
