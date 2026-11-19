@@ -337,7 +337,7 @@ export default function HomePage() {
 
         <section className="w-full">
           <h2 className="font-['Pretendard'] text-[16px] leading-[140%] font-medium text-[#6E6E6E]">
-            최근 결제
+            최근 결제로 고르기
           </h2>
           {isRecentPending ? (
             <div className="mt-[12px] flex h-[174px] w-full items-center justify-center rounded-xl bg-[#FAFAFA] font-['Pretendard'] text-[16px] leading-[140%] text-[#8E8E8E]">
