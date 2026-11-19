@@ -64,8 +64,12 @@ export function paymentView(record, resolveCard) {
     record.result === 'PAID_UNREGISTERED'
       ? UNREGISTERED_CARD
       : resolveCard(
-          record.userCard?.userCardId ?? record.recommendedCard?.userCardId,
-          record.userCard?.productName ?? record.recommendedCard?.productName,
+          record.userCard?.userCardId ??
+            record.chosenCard?.userCardId ??
+            record.recommendedCard?.userCardId,
+          record.userCard?.productName ??
+            record.chosenCard?.productName ??
+            record.recommendedCard?.productName,
         );
   return {
     ...record,
@@ -86,6 +90,11 @@ export function paymentSelection(record) {
   if (record.result === 'PAID_UNREGISTERED') return 'other';
   return String(
     record.userCard?.userCardId ??
+      (record.cardOptions?.some(
+        (card) => card.userCardId === record.chosenCard?.userCardId,
+      )
+        ? record.chosenCard.userCardId
+        : null) ??
       record.recommendedCard?.userCardId ??
       'other',
   );

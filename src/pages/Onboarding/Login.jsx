@@ -230,14 +230,14 @@ export default function Login() {
             다시 만나서 반가워요
           </h1>
           <p className="font-regular mt-2 text-[16px] text-[#4B4B4B]">
-            아이디와 비밀번호를 입력해주세요
+            이메일과 비밀번호를 입력해주세요
           </p>
         </div>
 
         {/* 입력 영역 */}
         <div className="mt-16 flex flex-col gap-[18px]">
           <FloatingField
-            label="아이디"
+            label="이메일"
             name="id"
             value={form.id}
             onChange={handleChange}

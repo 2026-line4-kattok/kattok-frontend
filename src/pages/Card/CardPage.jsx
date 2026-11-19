@@ -522,7 +522,7 @@ export default function CardPage() {
             이 카드의 혜택
           </h2>
           <p className="mt-[1px] font-['Pretendard'] text-[14px] leading-[140%] font-[400] break-keep text-[#8E8E8E]">
-            추천에 포함되는 혜택만 모았어요. 다 받아가세요.
+            추천에 포함되는 혜택만 모았어요.
             <br />
             카똑에서 확인된 결제 내역만 입력돼요.
           </p>

@@ -3,9 +3,13 @@ import api from './axiosInstance';
 // 4-7. 결제 확인 대기 기록 생성 (204 No Content)
 // 결제 완료가 아니라, 홈의 결제 확인 카드에 띄울 대기 기록을 만듭니다.
 // 같은 추천으로 여러 번 호출해도 대기 기록은 1건입니다.
+// 추천 카드가 아닌 다른 등록 카드를 골랐으면 body { userCardId }를 보내야 chosenCard가 채워집니다.
 // 404 RECOMMENDATION_NOT_FOUND · 409 NO_RECOMMENDED_CARD
-export const confirmRecommendation = (id) =>
-  api.post(`/v1/recommendations/${id}/confirm`);
+export const confirmRecommendation = (id, userCardId) =>
+  api.post(
+    `/v1/recommendations/${id}/confirm`,
+    userCardId != null ? { userCardId } : undefined,
+  );
 
 // 5-1. 결제 확인 선택지 조회 (현재 기록 + 다른 카드 선택지 cardOptions)
 // 404 RECOMMENDATION_NOT_FOUND · 409 PAYMENT_NOT_REQUESTED(대기 기록 없음)

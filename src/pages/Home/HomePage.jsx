@@ -6,7 +6,9 @@ import BottomNav from '@/components/layout/BottomNav';
 import { getCategoryIcon } from '@/constants/categories';
 import useMerchantCategories from '@/hooks/useMerchantCategories';
 import useHome from '@/hooks/useHome';
-import useRecentMerchants from '@/hooks/useRecentMerchants';
+import useRecentMerchants, {
+  toRecentAmountState,
+} from '@/hooks/useRecentMerchants';
 import useSavePaymentResult, {
   PAYMENT_RESULT,
 } from '@/hooks/useSavePaymentResult';
@@ -184,11 +186,11 @@ export default function HomePage() {
     }
   }, [location.pathname, location.state, navigate]);
 
-  // 결제 확인 카드의 [네](PAID_RECOMMENDED) / [X](NOT_PAID) 저장
-  const handleSavePayment = (result) => {
+  // 결제 확인 카드의 [네](PAID_RECOMMENDED·PAID_OTHER) / [X](NOT_PAID) 저장
+  const handleSavePayment = (result, userCardId) => {
     const payment = pendingPayment;
     savePayment(
-      { recommendationId: payment.id, result },
+      { recommendationId: payment.id, result, userCardId },
       {
         onSuccess: (response) => {
           setSavedPaymentId(payment.id);
@@ -216,6 +218,11 @@ export default function HomePage() {
     // 추천 카드가 삭제됐으면 추천 카드로 결제를 새로 고를 수 없으므로 다른 카드 선택으로 보냅니다.
     if (pendingPayment.isCardDeleted) {
       goToCardSelect();
+      return;
+    }
+    // 결과 화면에서 다른 카드를 골랐으면(chosenCard) 그 카드로 결제한 것으로 저장합니다.
+    if (pendingPayment.chosenCardId != null) {
+      handleSavePayment(PAYMENT_RESULT.PAID_OTHER, pendingPayment.chosenCardId);
       return;
     }
     handleSavePayment(PAYMENT_RESULT.PAID_RECOMMENDED);
@@ -337,7 +344,7 @@ export default function HomePage() {
 
         <section className="w-full">
           <h2 className="font-['Pretendard'] text-[16px] leading-[140%] font-medium text-[#6E6E6E]">
-            최근 결제
+            최근 결제로 고르기
           </h2>
           {isRecentPending ? (
             <div className="mt-[12px] flex h-[174px] w-full items-center justify-center rounded-xl bg-[#FAFAFA] font-['Pretendard'] text-[16px] leading-[140%] text-[#8E8E8E]">
@@ -358,16 +365,11 @@ export default function HomePage() {
             <div className="-mx-[18px] mt-[12px] flex [scrollbar-width:none] gap-3 overflow-x-auto px-[18px] max-phone-xs:-mx-3 max-phone-xs:px-3 [&::-webkit-scrollbar]:hidden">
               {recentMerchants.map((merchant) => (
                 <RecentPaymentCard
-                  key={merchant.id}
+                  key={merchant.key}
                   payment={merchant}
                   onClick={() =>
                     navigate(AMOUNT_PATH, {
-                      state: {
-                        merchantId: merchant.id,
-                        categoryId: merchant.categoryId,
-                        category: merchant.category,
-                        place: merchant.place,
-                      },
+                      state: toRecentAmountState(merchant),
                     })
                   }
                 />
