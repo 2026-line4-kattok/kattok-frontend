@@ -2,6 +2,7 @@ import cafeIcon from '@/assets/3DIcons/cafe.png';
 import convenienceStoreIcon from '@/assets/3DIcons/convenience_store.png';
 import departmentStoreIcon from '@/assets/3DIcons/department_store.png';
 import martIcon from '@/assets/3DIcons/mart.png';
+import moneyIcon from '@/assets/3DIcons/money.png';
 import onlineShoppingIcon from '@/assets/3DIcons/online-shopping.png';
 import pharmacyIcon from '@/assets/3DIcons/pharmacy.png';
 import restaurantIcon from '@/assets/3DIcons/restaurant.png';
@@ -44,6 +45,7 @@ const findPosition = (text, name) => {
 
 // 업종명이나 업종명이 들어간 문구('카페 10% 할인', '주말 마트 10% 할인' 등)에 맞는 아이콘을 찾습니다.
 // 여러 업종이 들어 있으면 가장 앞에 나온 업종을 씁니다.
+// 맞는 업종이 없으면(업종 미정) 기본 아이콘(money)을 씁니다.
 export const getCategoryIcon = (text = '') => {
   const target = normalize(text);
   let best = null;
@@ -55,5 +57,5 @@ export const getCategoryIcon = (text = '') => {
       }
     });
   });
-  return best?.icon;
+  return best?.icon ?? moneyIcon;
 };

@@ -19,7 +19,9 @@ export default function useConfirmRecommendation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (recommendationId) => confirmRecommendation(recommendationId),
+    // { recommendationId, userCardId? } — userCardId는 추천 카드가 아닌 등록 카드를 골랐을 때만
+    mutationFn: ({ recommendationId, userCardId }) =>
+      confirmRecommendation(recommendationId, userCardId),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: HOME_QUERY_KEY }),
   });
