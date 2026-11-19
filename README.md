@@ -6,7 +6,7 @@ Kattok 서비스의 프론트엔드 저장소입니다.
 
 결제처와 금액을 입력하면 보유 카드의 혜택을 비교해
 추천 카드와 예상 할인액, 추천 근거를 보여줍니다.
-<img width="402" height="874" alt="온보딩 18" src="https://github.com/user-attachments/assets/a32410db-beae-45d2-8b19-99671524987a" /><img width="402" height="874" alt="홈 1" src="https://github.com/user-attachments/assets/e6bd9066-2672-420c-84c9-88d341ad25cf" /><img width="402" height="874" alt="내카드 1" src="https://github.com/user-attachments/assets/4de6784e-bc9a-4cff-be07-150310ec9c4c" /><img width="402" height="874" alt="마이 1" src="https://github.com/user-attachments/assets/99bfb9f4-98ed-4a9e-be3d-bacb64695e1e" />
+
 
 
 
