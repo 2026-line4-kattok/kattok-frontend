@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import api from '@/api/axiosInstance';
 import { ChevronLeft, Check } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -86,13 +86,18 @@ function FloatingField({
 }
 
 export default function Login() {
+  const location = useLocation();
+  return <LoginScreen key={location.key} initialError={location.state?.message} />;
+}
+
+function LoginScreen({ initialError }) {
   const navigate = useNavigate();
   const [cards, setCards] = useState([]);
   const [form, setForm] = useState({ id: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [restoringAutoLogin] = useState(canRestoreAutoLogin);
   const [autoLogin, setAutoLogin] = useState(restoringAutoLogin);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(initialError ?? '');
   const [status, setStatus] = useState(restoringAutoLogin ? 'loading' : 'idle'); // idle | loading
 
   useEffect(() => {
