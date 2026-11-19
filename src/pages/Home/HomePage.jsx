@@ -186,11 +186,11 @@ export default function HomePage() {
     }
   }, [location.pathname, location.state, navigate]);
 
-  // 결제 확인 카드의 [네](PAID_RECOMMENDED) / [X](NOT_PAID) 저장
-  const handleSavePayment = (result) => {
+  // 결제 확인 카드의 [네](PAID_RECOMMENDED·PAID_OTHER) / [X](NOT_PAID) 저장
+  const handleSavePayment = (result, userCardId) => {
     const payment = pendingPayment;
     savePayment(
-      { recommendationId: payment.id, result },
+      { recommendationId: payment.id, result, userCardId },
       {
         onSuccess: (response) => {
           setSavedPaymentId(payment.id);
@@ -218,6 +218,11 @@ export default function HomePage() {
     // 추천 카드가 삭제됐으면 추천 카드로 결제를 새로 고를 수 없으므로 다른 카드 선택으로 보냅니다.
     if (pendingPayment.isCardDeleted) {
       goToCardSelect();
+      return;
+    }
+    // 결과 화면에서 다른 카드를 골랐으면(chosenCard) 그 카드로 결제한 것으로 저장합니다.
+    if (pendingPayment.chosenCardId != null) {
+      handleSavePayment(PAYMENT_RESULT.PAID_OTHER, pendingPayment.chosenCardId);
       return;
     }
     handleSavePayment(PAYMENT_RESULT.PAID_RECOMMENDED);

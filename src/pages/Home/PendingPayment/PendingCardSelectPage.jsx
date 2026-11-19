@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Toast from '@/components/common/Toast';
 import PageHeader from '@/components/layout/PageHeader';
+import useOwnedCards from '@/hooks/useOwnedCards';
 import usePaymentOptions, {
   isPaymentNotRequestedError,
   isRecommendationNotFoundError,
@@ -21,11 +22,27 @@ import {
 const UNREGISTERED = 'unregistered';
 const NOT_PAID = 'not-paid';
 
+// 보유 카드 목록(3-1)에서 카드 이미지를 찾아 붙입니다. (삭제된 카드·목록 실패 시 이미지 없이 보여 줍니다)
+const withImage = (card, cardImages) => {
+  const owned = cardImages.get(card.id);
+  return {
+    ...card,
+    image: owned?.image,
+    isHorizontal: owned?.isHorizontal ?? true,
+  };
+};
+
 // 지금 기록을 기준으로 처음 선택해 둘 항목
 const getInitialSelection = (payment) => {
   if (payment.result === 'PAID_UNREGISTERED') return UNREGISTERED;
   if (payment.result === 'NOT_PAID') return NOT_PAID;
   if (payment.userCardId != null) return payment.userCardId;
+  if (
+    payment.chosenCardId != null &&
+    payment.cardOptions.some((card) => card.id === payment.chosenCardId)
+  ) {
+    return payment.chosenCardId;
+  }
   if (payment.recommendedCard && !payment.recommendedCard.deleted) {
     return payment.recommendedCard.id;
   }
@@ -68,6 +85,7 @@ export default function PendingCardSelectPage() {
     error,
     refetch,
   } = usePaymentOptions(recommendationId);
+  const { data: ownedCards = [] } = useOwnedCards();
   // 사용자가 직접 고른 항목 (고르기 전에는 지금 기록 기준으로 선택해 둡니다)
   const [pickedId, setPickedId] = useState();
   const { mutate: savePayment, isPending: isSaving } = useSavePaymentResult();
@@ -106,7 +124,13 @@ export default function PendingCardSelectPage() {
     );
   }
 
-  const { recommendedCard, cardOptions, category } = payment;
+  const cardImages = new Map(ownedCards.map((card) => [card.id, card]));
+  const { category } = payment;
+  const recommendedCard =
+    payment.recommendedCard && withImage(payment.recommendedCard, cardImages);
+  const cardOptions = payment.cardOptions.map((card) =>
+    withImage(card, cardImages),
+  );
   const selectedId =
     pickedId === undefined ? getInitialSelection(payment) : pickedId;
 

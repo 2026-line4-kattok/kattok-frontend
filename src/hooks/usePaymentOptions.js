@@ -34,6 +34,8 @@ const toPaymentOptionsView = (data) => ({
   },
   // 지금 기록된 사용 카드 (확인 전이면 null)
   userCardId: data.userCard?.userCardId ?? null,
+  // 결과 화면에서 고른 다른 카드 (추천 카드 그대로면 null)
+  chosenCardId: data.chosenCard?.userCardId ?? null,
   // 추천 카드를 뺀 현재 등록 카드. expectedBenefit null = 계산 안 됨
   cardOptions: (data.cardOptions ?? []).map((option) => ({
     id: option.userCardId,

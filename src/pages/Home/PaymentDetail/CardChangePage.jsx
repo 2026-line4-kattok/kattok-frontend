@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import PageHeader from '@/components/layout/PageHeader';
 import useConfirmOnLeave, {
+  getChosenCardId,
   hasRecommendedCard,
 } from '@/hooks/useConfirmOnLeave';
 import useOwnedCards from '@/hooks/useOwnedCards';
@@ -124,7 +125,11 @@ export default function CardChangePage() {
   );
   const selectedCardId = pickedCardId ?? payment?.recommendedCardId;
   // [X] 등으로 결제 흐름을 벗어나면 홈의 결제 확인 카드로 결제 여부를 묻습니다.
-  useConfirmOnLeave(payment?.id, hasRecommendedCard(payment));
+  useConfirmOnLeave(
+    payment?.id,
+    hasRecommendedCard(payment),
+    getChosenCardId(selectedCardId, payment?.recommendedCardId),
+  );
 
   if (!payment) {
     return (
