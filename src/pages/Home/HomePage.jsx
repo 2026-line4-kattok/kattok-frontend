@@ -6,7 +6,9 @@ import BottomNav from '@/components/layout/BottomNav';
 import { getCategoryIcon } from '@/constants/categories';
 import useMerchantCategories from '@/hooks/useMerchantCategories';
 import useHome from '@/hooks/useHome';
-import useRecentMerchants from '@/hooks/useRecentMerchants';
+import useRecentMerchants, {
+  toRecentAmountState,
+} from '@/hooks/useRecentMerchants';
 import useSavePaymentResult, {
   PAYMENT_RESULT,
 } from '@/hooks/useSavePaymentResult';
@@ -358,16 +360,11 @@ export default function HomePage() {
             <div className="-mx-[18px] mt-[12px] flex [scrollbar-width:none] gap-3 overflow-x-auto px-[18px] max-phone-xs:-mx-3 max-phone-xs:px-3 [&::-webkit-scrollbar]:hidden">
               {recentMerchants.map((merchant) => (
                 <RecentPaymentCard
-                  key={merchant.id}
+                  key={merchant.key}
                   payment={merchant}
                   onClick={() =>
                     navigate(AMOUNT_PATH, {
-                      state: {
-                        merchantId: merchant.id,
-                        categoryId: merchant.categoryId,
-                        category: merchant.category,
-                        place: merchant.place,
-                      },
+                      state: toRecentAmountState(merchant),
                     })
                   }
                 />

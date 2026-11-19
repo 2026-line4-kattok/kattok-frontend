@@ -6,7 +6,9 @@ import { getCategoryIcon } from '@/constants/categories';
 import useDebouncedValue from '@/hooks/useDebouncedValue';
 import useMerchantCategories from '@/hooks/useMerchantCategories';
 import useMerchantSearch from '@/hooks/useMerchantSearch';
-import useRecentMerchants from '@/hooks/useRecentMerchants';
+import useRecentMerchants, {
+  toRecentAmountState,
+} from '@/hooks/useRecentMerchants';
 import { cn } from '@/utils/cn';
 
 const AMOUNT_PATH = '/payment/amount';
@@ -67,7 +69,8 @@ function MerchantList({ merchants, keyword, onSelect }) {
   return (
     <ul className="mt-[24px] flex flex-col">
       {merchants.map((merchant) => (
-        <li key={merchant.id} className="py-[8px]">
+        // 최근 결제 항목은 업종 항목(id: null)이 섞여 있어 type + id로 만든 key를 씁니다.
+        <li key={merchant.key ?? merchant.id} className="py-[8px]">
           <button
             type="button"
             disabled={!merchant.supported}
@@ -255,7 +258,7 @@ export default function SearchPage() {
           ) : recentMerchants.length > 0 ? (
             <MerchantList
               merchants={recentMerchants}
-              onSelect={selectMerchant}
+              onSelect={(item) => goToAmount(toRecentAmountState(item))}
             />
           ) : (
             <p className={STATUS_TEXT}>최근 결제한 곳이 없어요</p>
