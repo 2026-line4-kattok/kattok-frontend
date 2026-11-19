@@ -68,7 +68,10 @@ function PaymentHistory({
             </button>
           </div>
           <p className="text-[18px] font-semibold text-[#121212]">
-            {item.recommendedCard?.productName ?? '추천 카드'}로 결제하셨나요?
+            {item.chosenCard?.productName ??
+              item.recommendedCard?.productName ??
+              '추천 카드'}
+            로 결제하셨나요?
           </p>
           <span className="text-[14px] text-[#8E8E8E]">
             {item.place} · {won(item.amount)}
@@ -85,14 +88,20 @@ function PaymentHistory({
             </button>
             <button
               type="button"
-              aria-label="추천 카드로 결제했어요"
-              disabled={saving || item.recommendedCard?.deleted}
+              aria-label={
+                item.chosenCard
+                  ? '고른 카드로 결제했어요'
+                  : '추천 카드로 결제했어요'
+              }
+              disabled={
+                saving || (!item.chosenCard && item.recommendedCard?.deleted)
+              }
               onClick={() => onConfirm(item)}
             >
               <Check size={20} />
             </button>
           </div>
-          {item.recommendedCard?.deleted && (
+          {!item.chosenCard && item.recommendedCard?.deleted && (
             <p className="pb-3 text-[14px] text-[#8E8E8E]">
               추천 카드가 삭제됐어요. 더보기에서 결제한 카드를 선택해주세요.
             </p>

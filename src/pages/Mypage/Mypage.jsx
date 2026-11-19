@@ -227,6 +227,14 @@ export default function Mypage() {
     }
   };
   const confirmPayment = (payment) => {
+    // 결과 화면에서 다른 카드를 골랐으면(chosenCard) 그 카드로 결제한 것으로 저장합니다.
+    if (payment.chosenCard) {
+      void persistPayment(payment, {
+        result: 'PAID_OTHER',
+        userCardId: payment.chosenCard.userCardId,
+      });
+      return;
+    }
     if (payment.recommendedCard?.deleted) {
       setMutationError(
         '추천 카드가 삭제됐어요. 다른 카드나 미등록 카드를 선택해주세요.',

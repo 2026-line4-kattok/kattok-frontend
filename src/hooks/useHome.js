@@ -9,8 +9,15 @@ const toHomeView = (data) => {
   return {
     pendingPayment: pending && {
       id: pending.recommendationId,
-      cardName: pending.recommendedCard?.productName ?? '',
-      isCardDeleted: pending.recommendedCard?.deleted ?? false,
+      // 결과 화면에서 다른 카드를 골랐으면 chosenCard, 추천 카드 그대로면 null
+      chosenCardId: pending.chosenCard?.userCardId ?? null,
+      cardName:
+        pending.chosenCard?.productName ??
+        pending.recommendedCard?.productName ??
+        '',
+      // 고른 카드가 있으면 추천 카드 삭제 여부와 상관없이 그 카드로 확인합니다.
+      isCardDeleted:
+        !pending.chosenCard && (pending.recommendedCard?.deleted ?? false),
       place: pending.merchant?.name ?? '',
       category: pending.category?.name ?? '',
       amount: pending.amount ?? 0,

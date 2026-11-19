@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import Toast from '@/components/common/Toast';
 import PageHeader from '@/components/layout/PageHeader';
 import useConfirmOnLeave, {
+  getChosenCardId,
   hasRecommendedCard,
 } from '@/hooks/useConfirmOnLeave';
 import useConfirmRecommendation, {
@@ -436,9 +437,11 @@ export default function PaymentDetailPage() {
   // 사용 현황을 저장하고 다시 추천받는 동안 스켈레톤을 보여 줍니다.
   const isRecalculating = isSavingState || isRecommending;
   // [X]·뒤로 가기 등으로 화면을 벗어나면 홈의 결제 확인 카드로 결제 여부를 묻습니다.
+  // 다른 카드를 골라 둔 채 벗어나면 그 카드를 함께 보내 결제 확인 카드에 보여 줍니다.
   const skipConfirmOnLeave = useConfirmOnLeave(
     recommendation?.id,
     hasRecommendedCard(recommendation),
+    getChosenCardId(selectedCardId, recommendation?.recommendedCardId),
   );
 
   if (!recommendation) {
@@ -563,27 +566,34 @@ export default function PaymentDetailPage() {
     );
   };
 
+  // 다른 등록 카드를 골랐으면 4-7에 userCardId를 보내야 chosenCard가 채워집니다.
   const handleConfirm = () =>
-    confirmPayment(recommendation.id, {
-      onSuccess: recordPayment,
-      onError: (error) =>
-        setErrorToast(
-          isNoRecommendedCardError(error)
-            ? {
-                title: '기록할 추천 카드가 없어요',
-                description: '혜택이 계산된 카드가 없어 기록하지 않았어요',
-              }
-            : isRecommendationNotFoundError(error)
+    confirmPayment(
+      {
+        recommendationId: recommendation.id,
+        userCardId: getChosenCardId(selectedCard?.id, recommendedCardId),
+      },
+      {
+        onSuccess: recordPayment,
+        onError: (error) =>
+          setErrorToast(
+            isNoRecommendedCardError(error)
               ? {
-                  title: '추천 정보를 찾을 수 없어요',
-                  description: '처음부터 다시 추천받아 주세요',
+                  title: '기록할 추천 카드가 없어요',
+                  description: '혜택이 계산된 카드가 없어 기록하지 않았어요',
                 }
-              : {
-                  title: '기록하지 못했어요',
-                  description: '잠시 후 다시 시도해 주세요',
-                },
-        ),
-    });
+              : isRecommendationNotFoundError(error)
+                ? {
+                    title: '추천 정보를 찾을 수 없어요',
+                    description: '처음부터 다시 추천받아 주세요',
+                  }
+                : {
+                    title: '기록하지 못했어요',
+                    description: '잠시 후 다시 시도해 주세요',
+                  },
+          ),
+      },
+    );
 
   return (
     // 헤더는 고정하고 그 아래 영역만 스크롤합니다.
