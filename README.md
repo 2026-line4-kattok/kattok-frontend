@@ -12,7 +12,8 @@
 
 | 홈 | 카드 추천 결과 | 내 카드 | 결제 기록 |
 | :---: | :---: | :---: | :---: |
-| <img src="docs/images/home.png" width="190" alt="홈 화면" /> | <img src="docs/images/recommendation.png" width="190" alt="카드 추천 결과" /> | <img src="docs/images/cards.png" width="190" alt="내 카드 화면" /> | <img src="docs/images/records.png" width="190" alt="결제 기록 화면" /> |
+| <img width="402" height="874" alt="홈 1" src="https://github.com/user-attachments/assets/43f5861e-0af3-47aa-bb54-cdebc6495068" />
+ | <img src="docs/images/recommendation.png" width="190" alt="카드 추천 결과" /> | <img src="docs/images/cards.png" width="190" alt="내 카드 화면" /> | <img src="docs/images/records.png" width="190" alt="결제 기록 화면" /> |
 | 결제할 곳과 금액 입력 | 카드별 예상 혜택 비교 | 보유 카드와 실적·한도 관리 | 월별 기록과 챙긴 혜택 확인 |
 
 ## 주요 기능
